@@ -49,6 +49,15 @@ class SecretCacheTest {
     }
 
     @Test
+    fun `put with explicit ttlMs overrides constructor default`() {
+        // Used by DopplerProjectService to honor settings-page TTL changes per fetch.
+        val cache = SecretCache(ttlMs = 60_000)
+        cache.put("p", "c", mapOf("K" to "v"), ttlMs = 50)
+        Thread.sleep(500)
+        assertThat(cache.get("p", "c")).isNull()
+    }
+
+    @Test
     fun `put overwrites existing entry and resets ttl`() {
         val cache = SecretCache(ttlMs = 60_000)
         cache.put("p", "c", mapOf("K" to "old"))
