@@ -15,6 +15,7 @@
 
     <extensions defaultExtensionNs="com.intellij">
         <projectService serviceImplementation="com.tonihacks.doppler.settings.DopplerSettingsState"/>
+        <projectService serviceImplementation="com.tonihacks.doppler.service.DopplerProjectService"/>
         <!-- isLogByDefault="false": notifications never go to the persistent Event Log
              panel — they fade with the balloon. Defense in depth for spec §11.2: even if a
              future caller accidentally passes a value-bearing string to DopplerNotifier,
