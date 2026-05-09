@@ -56,7 +56,7 @@ intellijPlatform {
 }
 
 kotlin {
-    jvmToolchain(25)
+    jvmToolchain(21)
 }
 
 tasks.withType<KotlinCompile>().configureEach {
