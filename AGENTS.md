@@ -98,6 +98,28 @@ Plan:
 
 Wait for confirmation before executing. The plan is the cheapest place to catch a wrong direction.
 
+### 1.5 Working process: superpowers skills + adversarial review
+
+This codebase rewards discipline over speed. Default to using the available process tooling rather than improvising.
+
+1. **Always invoke `superpowers:using-superpowers` at session start.** It's the gateway to the other process skills. If unsure whether a skill applies — invoke it. The 1% rule.
+
+2. **Reach for the matching superpower before each phase, not after:**
+    - Designing / open-ended scope → `superpowers:brainstorming`
+    - Writing code → `superpowers:test-driven-development`
+    - Stuck / mysterious bug → `superpowers:systematic-debugging`
+    - Multi-step task → `superpowers:writing-plans` then `superpowers:executing-plans`
+    - About to declare done → `superpowers:verification-before-completion`
+
+3. **Adversarial review is mandatory before marking a phase or PR complete.** Dispatch two subagents in parallel:
+    - **Code review** — `feature-dev:code-reviewer` agent or `code-review:code-review` skill. Brief explicitly in **adversary mode**: *"Find every flaw. No benefit of the doubt. Attack KISS / YAGNI violations, premature abstractions, leaking responsibilities, scope creep, hidden complexity. Prove this is wrong, not that it's right."*
+    - **Security review** — `security-review` skill. Brief explicitly in **adversary mode**: *"Assume malicious input. Find every way a secret could leak via logs, exception messages, process args, persisted state, cache, telemetry, or stack traces. Cross-check spec §11 line by line."*
+    - Adversary mode is **not balance**. Reviewer subagents default to charity; this codebase needs the opposite. The point is to surface flaws the author missed.
+
+4. **Use subagents for parallelism**, not just review. When several independent reads / open-ended researches would otherwise bloat context, dispatch them concurrently via the `Agent` tool (`Explore` for known targets, `general-purpose` for open-ended questions).
+
+5. **Don't skip review to "save time".** A 60-second adversarial review on a 200-line diff catches what a 30-minute self-review misses. Authors have blind spots — the review skills exist precisely because of that.
+
 ---
 
 ## 2. Architecture rules (non-negotiable)
