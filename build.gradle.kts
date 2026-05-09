@@ -23,6 +23,7 @@ dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2024.2")
         testFramework(TestFrameworkType.Platform)
+        testFramework(TestFrameworkType.JUnit5)
     }
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
