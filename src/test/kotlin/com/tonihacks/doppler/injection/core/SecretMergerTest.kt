@@ -7,35 +7,35 @@ import org.junit.jupiter.api.Test
 class SecretMergerTest {
 
     @Test
-    fun `merge with both empty produces empty merged map and empty overrides`() {
+    fun `merge with both empty produces empty merged map and empty shadowedKeys`() {
         val result = SecretMerger.merge(existing = emptyMap<String, String>(), doppler = emptyMap<String, String>())
 
         assertThat(result.merged).isEmpty()
-        assertThat(result.overriddenKeys).isEmpty()
+        assertThat(result.shadowedKeys).isEmpty()
     }
 
     @Test
-    fun `merge with empty existing returns doppler entries verbatim and no overrides`() {
+    fun `merge with empty existing returns doppler entries verbatim and no shadowing`() {
         val doppler = mapOf("API_KEY" to "abc", "DB_URL" to "FAKE_DB_URL")
 
         val result = SecretMerger.merge(existing = emptyMap<String, String>(), doppler = doppler)
 
         assertThat(result.merged).containsExactlyInAnyOrderEntriesOf(doppler)
-        assertThat(result.overriddenKeys).isEmpty()
+        assertThat(result.shadowedKeys).isEmpty()
     }
 
     @Test
-    fun `merge with empty doppler returns existing entries verbatim and no overrides`() {
+    fun `merge with empty doppler returns existing entries verbatim and no shadowing`() {
         val existing = mapOf("USER_HOME" to "/home/me", "PATH" to "/usr/bin")
 
         val result = SecretMerger.merge(existing = existing, doppler = emptyMap<String, String>())
 
         assertThat(result.merged).containsExactlyInAnyOrderEntriesOf(existing)
-        assertThat(result.overriddenKeys).isEmpty()
+        assertThat(result.shadowedKeys).isEmpty()
     }
 
     @Test
-    fun `merge with no key overlap unions both maps and reports no overrides`() {
+    fun `merge with no key overlap unions both maps and reports no shadowing`() {
         val existing = mapOf("PATH" to "/usr/bin")
         val doppler = mapOf("API_KEY" to "abc")
 
@@ -45,24 +45,28 @@ class SecretMergerTest {
             entry("PATH", "/usr/bin"),
             entry("API_KEY", "abc"),
         )
-        assertThat(result.overriddenKeys).isEmpty()
+        assertThat(result.shadowedKeys).isEmpty()
     }
 
     @Test
-    fun `doppler value wins on key collision and the key is reported as overridden`() {
-        val existing = mapOf("API_KEY" to "FAKE_MANUAL", "PATH" to "/usr/bin")
+    fun `local existing value wins on key collision and the Doppler-managed key is reported as shadowed`() {
+        // Spec §5.3: local wins. The dev's temporary override (e.g. personal sandbox URL) is
+        // honored; the Doppler-managed value is held in reserve. The fact that Doppler also
+        // has a value for the key is recorded so the dev gets the "your local env diverges
+        // from CI/staging" warning.
+        val existing = mapOf("API_KEY" to "FAKE_LOCAL", "PATH" to "/usr/bin")
         val doppler = mapOf("API_KEY" to "FAKE_DOPPLER")
 
         val result = SecretMerger.merge(existing, doppler)
 
-        assertThat(result.merged).containsEntry("API_KEY", "FAKE_DOPPLER")
+        assertThat(result.merged).containsEntry("API_KEY", "FAKE_LOCAL")
         assertThat(result.merged).containsEntry("PATH", "/usr/bin")
-        assertThat(result.overriddenKeys).containsExactly("API_KEY")
+        assertThat(result.shadowedKeys).containsExactly("API_KEY")
     }
 
     @Test
-    fun `key present in both with identical value is still reported as overridden — pinned design choice`() {
-        // Pin: overriddenKeys is the key intersection, not "keys whose value actually changed".
+    fun `key present in both with identical value is still reported as shadowed — pinned design choice`() {
+        // Pin: shadowedKeys is the key intersection, not "keys whose value actually differed".
         // Rationale: KISS — value-equality logic in the merge pulls value-aware code into
         // the core that is supposed to stay value-blind (keys-only is a security invariant
         // for downstream notifications per spec §11.7). If a future maintainer "tightens"
@@ -73,11 +77,11 @@ class SecretMergerTest {
         val result = SecretMerger.merge(existing = same, doppler = same)
 
         assertThat(result.merged).containsExactlyInAnyOrderEntriesOf(same)
-        assertThat(result.overriddenKeys).containsExactly("FOO")
+        assertThat(result.shadowedKeys).containsExactly("FOO")
     }
 
     @Test
-    fun `partial overlap reports exactly the overlapping keys`() {
+    fun `partial overlap reports exactly the shadowed keys and keeps local values for those`() {
         val existing = mapOf("A" to "1", "B" to "2", "C" to "3")
         val doppler = mapOf("B" to "FAKE_B", "C" to "FAKE_C", "D" to "FAKE_D")
 
@@ -85,11 +89,11 @@ class SecretMergerTest {
 
         assertThat(result.merged).containsOnly(
             entry("A", "1"),
-            entry("B", "FAKE_B"),
-            entry("C", "FAKE_C"),
-            entry("D", "FAKE_D"),
+            entry("B", "2"), // local value preserved
+            entry("C", "3"), // local value preserved
+            entry("D", "FAKE_D"), // doppler-only key falls through
         )
-        assertThat(result.overriddenKeys).containsExactlyInAnyOrder("B", "C")
+        assertThat(result.shadowedKeys).containsExactlyInAnyOrder("B", "C")
     }
 
     @Test
