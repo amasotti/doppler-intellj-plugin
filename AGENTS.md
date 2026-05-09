@@ -1,7 +1,8 @@
 # agents.md — AI Agent Guidelines
 
 > **Audience:** Claude Code (and other AI coding assistants) working on the Doppler JetBrains Plugin.
-> **Purpose:** Encode the project's design philosophy, code conventions, and operating rules so an AI agent produces work consistent with the spec and with how Toni works.
+> **Purpose:** Encode the project's design philosophy, code conventions, and operating rules so an AI agent produces
+> work consistent with the spec and with how Toni works.
 
 ---
 
@@ -9,38 +10,50 @@
 
 Before doing anything, read:
 
-1. `spec.md` — the source of truth for what is being built
+1. `docs/spec.md` — the source of truth for what is being built
 2. This file — the source of truth for *how* it is built and how you should behave
 3. The **IntelliJ Platform Plugin SDK docs** — the source of truth for everything about IntelliJ APIs
 
 If a request conflicts with `spec.md`, stop and ask. Do not silently change scope.
 
-If `spec.md` conflicts with the SDK docs (e.g., wrong extension point name, deprecated API, wrong Gradle plugin ID), **the SDK docs win.** Surface the conflict in chat and propose a spec update before coding around it.
+If `spec.md` conflicts with the SDK docs (e.g., wrong extension point name, deprecated API, wrong Gradle plugin ID), *
+*the SDK docs win.**
+Surface the conflict in chat and propose a spec update before coding around it.
+
+Work mode is iterative: you will not produce perfect code on the first try and should not attempt to complete large
+tasks in one go.
+The user that is guiding you is an expert developer himself and will provide feedback and course corrections as you go.
+
+Documentation is important. Treat stale documentation as a bug. If you implement something new or correct something,
+never consider the task done until the relevant documentation is updated as well.
 
 ### 0.1 Canonical SDK references
 
-These are the URLs to consult before writing IntelliJ-specific code. Always check the live page — the SDK evolves and your training data may be stale:
+These are the URLs to consult before writing IntelliJ-specific code. Always check the live page — the SDK evolves and
+your training data may be stale:
 
-| Topic | URL |
-|---|---|
-| **Quick Start (entry point)** | <https://plugins.jetbrains.com/docs/intellij/plugins-quick-start.html> |
-| Developing a Plugin | <https://plugins.jetbrains.com/docs/intellij/developing-plugins.html> |
-| Plugin Structure | <https://plugins.jetbrains.com/docs/intellij/plugin-structure.html> |
-| `plugin.xml` reference | <https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html> |
-| Implementing in Kotlin | <https://plugins.jetbrains.com/docs/intellij/using-kotlin.html> |
-| **Run Configurations** (architecturally critical) | <https://plugins.jetbrains.com/docs/intellij/run-configurations.html> |
-| Run Configurations Tutorial | <https://plugins.jetbrains.com/docs/intellij/run-configurations-tutorial.html> |
-| **IntelliJ Platform Gradle Plugin (2.x)** | <https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html> |
-| IntelliJ Platform Plugin Template | <https://github.com/JetBrains/intellij-platform-plugin-template> |
-| Plugin Signing | <https://plugins.jetbrains.com/docs/intellij/plugin-signing.html> |
-| FAQ | <https://plugins.jetbrains.com/docs/intellij/faq.html> |
-| Doppler CLI reference | <https://docs.doppler.com/reference/cli> |
+| Topic                                             | URL                                                                                      |
+|---------------------------------------------------|------------------------------------------------------------------------------------------|
+| **Quick Start (entry point)**                     | <https://plugins.jetbrains.com/docs/intellij/plugins-quick-start.html>                   |
+| Developing a Plugin                               | <https://plugins.jetbrains.com/docs/intellij/developing-plugins.html>                    |
+| Plugin Structure                                  | <https://plugins.jetbrains.com/docs/intellij/plugin-structure.html>                      |
+| `plugin.xml` reference                            | <https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html>             |
+| Implementing in Kotlin                            | <https://plugins.jetbrains.com/docs/intellij/using-kotlin.html>                          |
+| **Run Configurations** (architecturally critical) | <https://plugins.jetbrains.com/docs/intellij/run-configurations.html>                    |
+| Run Configurations Tutorial                       | <https://plugins.jetbrains.com/docs/intellij/run-configurations-tutorial.html>           |
+| **IntelliJ Platform Gradle Plugin (2.x)**         | <https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html> |
+| IntelliJ Platform Plugin Template                 | <https://github.com/JetBrains/intellij-platform-plugin-template>                         |
+| Plugin Signing                                    | <https://plugins.jetbrains.com/docs/intellij/plugin-signing.html>                        |
+| FAQ                                               | <https://plugins.jetbrains.com/docs/intellij/faq.html>                                   |
+| Doppler CLI reference                             | <https://docs.doppler.com/reference/cli>                                                 |
 
 ### 0.2 Specific facts the SDK docs already settled (don't re-derive)
 
-- **Gradle plugin ID is `org.jetbrains.intellij.platform`** (2.x). The 1.x `org.jetbrains.intellij` is frozen and must not be used.
-- **Minimum Gradle 8.13, minimum JDK 17** for the 2.x Gradle plugin.
-- **There is no single platform-wide "modify any run configuration" extension point.** Each family has its own subclass of `RunConfigurationExtensionBase`. Do not invent a generic hook.
+- **Gradle plugin ID is `org.jetbrains.intellij.platform`** (2.x). The 1.x `org.jetbrains.intellij` is frozen and must
+  not be used.
+- **Minimum Gradle 9.1, minimum JDK 21** for the 2.x Gradle plugin. This project is using gradle 9.2 and JDK 25, so we're good.
+- **There is no single platform-wide "modify any run configuration" extension point.** Each family has its own subclass
+  of `RunConfigurationExtensionBase`. Do not invent a generic hook.
 - **Don't set `until-build`** in `plugin.xml` unless there's a documented reason. Default = open-ended compatibility.
 - **Use the Plugin Template** as the project bootstrap. Don't hand-roll CI workflows when the template ships them.
 
@@ -50,14 +63,19 @@ These are the URLs to consult before writing IntelliJ-specific code. Always chec
 
 ### 1.1 Be a collaborator, not a generator
 
-- **Ask before assuming.** When the requirement is genuinely ambiguous, ask one focused question. When you can make a sensible default, state the assumption inline and proceed.
-- **Disagree when warranted.** If a task contradicts the spec, KISS, YAGNI, or the security rules in §6 below, push back with a short reasoning before complying. "User asked for it" is not enough.
-- **Surface unknowns.** If you don't know an IntelliJ Platform API's behavior, say so and propose a verification step (e.g., write a small probe test) rather than inventing.
+- **Ask before assuming.** When the requirement is genuinely ambiguous, ask one focused question. When you can make a
+  sensible default, state the assumption inline and proceed.
+- **Disagree when warranted.** If a task contradicts the spec, KISS, YAGNI, or the security rules in §6 below, push back
+  with a short reasoning before complying. "User asked for it" is not enough.
+- **Surface unknowns.** If you don't know an IntelliJ Platform API's behavior, say so and propose a verification step (
+  e.g., write a small probe test) rather than inventing.
 
 ### 1.2 KISS / YAGNI by default
 
-- Build the minimum that satisfies the current ticket. Do not preemptively generalize, add config flags, build "framework" abstractions, or speculate on future requirements.
-- If you find yourself adding an interface "in case we want to swap implementations later" — stop. Add it when there are two implementations.
+- Build the minimum that satisfies the current ticket. Do not preemptively generalize, add config flags, build "
+  framework" abstractions, or speculate on future requirements.
+- If you find yourself adding an interface "in case we want to swap implementations later" — stop. Add it when there are
+  two implementations.
 - Comments explain *why*, not *what*. The code shows what.
 
 ### 1.3 Small, reviewable diffs
@@ -101,6 +119,7 @@ notification/← user-facing messages                 (depends on: nothing)
 *Exception: `cli/` may use `GeneralCommandLine` from IntelliJ, but nothing else.
 
 **Rules:**
+
 - No `ui/` import in `service/`, `cli/`, `cache/`. Reverse is fine.
 - No IntelliJ Platform import in `cli/` except `GeneralCommandLine` and `PathEnvironmentVariableUtil`.
 - No `service/` import in `cli/` or `cache/`.
@@ -111,7 +130,8 @@ If you find yourself wanting to violate a layer, the design is wrong. Stop and d
 ### 2.2 The CLI is the only Doppler integration
 
 - v1 makes **zero** direct HTTP calls to the Doppler API. Everything goes through `doppler` subprocess.
-- If you find yourself reaching for `OkHttp`, `ktor-client`, or `HttpURLConnection` to talk to Doppler — stop. The answer is the CLI.
+- If you find yourself reaching for `OkHttp`, `ktor-client`, or `HttpURLConnection` to talk to Doppler — stop. The
+  answer is the CLI.
 
 ### 2.3 Run-config injection: core service stays family-free
 
@@ -139,7 +159,7 @@ If you can't answer "no" with certainty, the change is not ready.
 
 ### 3.1 Language
 
-- Kotlin 1.9+ (whatever the IntelliJ Platform Gradle plugin pins).
+- Kotlin 2.3+ (whatever the IntelliJ Platform Gradle plugin pins).
 - JVM target: 17.
 - Prefer Kotlin idioms (`data class`, `sealed class`, `when` exhaustiveness) over Java-style.
 - Use `Result<T>` or sealed result types for fallible operations. Don't throw across module boundaries.
@@ -147,8 +167,6 @@ If you can't answer "no" with certainty, the change is not ready.
 ### 3.2 Style
 
 - Follow IntelliJ Platform's Kotlin code style (built-in formatter; run `./gradlew ktlintFormat` if configured).
-- 4-space indent, no tabs.
-- 120-character soft line limit.
 - One top-level public class per file. Helpers and private classes can share a file when tightly coupled.
 
 ### 3.3 Naming
@@ -186,14 +204,16 @@ If you can't answer "no" with certainty, the change is not ready.
 
 ### 4.2 plugin.xml
 
-- One `plugin.xml` per module. Family-specific extensions go behind `<depends optional="true" config-file="...">` so the plugin loads cleanly in IDEs without that family.
+- One `plugin.xml` per module. Family-specific extensions go behind `<depends optional="true" config-file="...">` so the
+  plugin loads cleanly in IDEs without that family.
 - Declare `<idea-version since-build="242"/>` (matches §9 of spec).
 - Use `<localInspection>`, `<projectService>`, etc. — never inline Java-style XML registration.
 
 ### 4.3 Notifications
 
 - One `NotificationGroup` registered in `plugin.xml`, ID = `Doppler`.
-- All user-facing messages go through `DopplerNotifier`. Don't sprinkle `Notifications.Bus.notify` calls around the codebase.
+- All user-facing messages go through `DopplerNotifier`. Don't sprinkle `Notifications.Bus.notify` calls around the
+  codebase.
 
 ### 4.4 Persistent state
 
@@ -220,12 +240,14 @@ If you can't answer "no" with certainty, the change is not ready.
 - One concept per test method. The name reads as a sentence: `secretCache_returnsCached_whenWithinTtl`.
 - AAA structure: Arrange, Act, Assert. Blank lines between.
 - Prefer `assertThat` (AssertJ via IntelliJ test helpers) over JUnit's `assertEquals` for readable failures.
-- Tests use only fixture data. **Never** call the real Doppler API or CLI in tests. Use a fake CLI binary script for `DopplerCliClient` tests.
+- Tests use only fixture data. **Never** call the real Doppler API or CLI in tests. Use a fake CLI binary script for
+  `DopplerCliClient` tests.
 
 ### 5.3 Test coverage
 
 - No coverage threshold gate in CI. Coverage is a smell, not a goal.
-- A PR that adds behavior without a test is incomplete. A PR that adds 20 tests for a one-line change is also incomplete.
+- A PR that adds behavior without a test is incomplete. A PR that adds 20 tests for a one-line change is also
+  incomplete / overkill. Use judgment.
 
 ---
 
@@ -249,87 +271,22 @@ If any answer is "I don't know," the PR is not ready.
 
 ## 7. Git & PR conventions
 
-### 7.1 Branches
+- You are not allowed to commit. You write, review code and work as copilot. The user is the one committing and pushing.
+- If you are done with a change, write a commit message and a PR description, then ask the user to review and merge. Don't merge
+  your own PRs.
 
-- `main` is always green and releasable.
-- Feature branches: `feat/<short-kebab>` (e.g., `feat/secret-cache`).
-- Fix branches: `fix/<short-kebab>`.
-- Chore/refactor: `chore/<short-kebab>`, `refactor/<short-kebab>`.
 
-### 7.2 Commits
-
-- [Conventional Commits](https://www.conventionalcommits.org/) format. Match Toni's other repos.
-- Examples:
-  - `feat(injection): add Java run configuration extension`
-  - `fix(cli): handle Windows line endings in JSON output`
-  - `chore(deps): bump intellij-platform-gradle-plugin to 2.1.0`
-  - `refactor(service): extract cache invalidation to method`
-- Imperative mood. Lowercase subject. No trailing period.
-
-### 7.3 PRs
-
-- Title: same as the squash commit.
-- Description sections:
-  - **What** — one paragraph, the change in plain English.
-  - **Why** — link to the issue or spec section. If neither exists, the PR is too vague.
-  - **How** — non-obvious implementation choices, only if any.
-  - **Testing** — what you ran. "Verified in IDEA Ultimate 2024.3 + WebStorm 2024.3."
-  - **Security checklist** — copy from §6, with each box checked.
-- One reviewer minimum. Toni reviews everything in v1.
-
-### 7.4 Releases
-
-- SemVer. Pre-1.0 = `0.x.y` (breaking changes allowed in minor).
-- Tag = `v<version>`. Tag triggers the release workflow.
-- `CHANGELOG.md` updated in the same PR that bumps the version.
-
----
-
-## 8. Working with Claude Code specifically
-
-### 8.1 What works well
-
-- Implementing a single class with a clear interface and tests, end to end.
-- Writing the test fixtures and the matching JSON parser.
-- Refactoring one file at a time with a clear before/after intent.
-- Writing release notes from a `git log`.
-
-### 8.2 What requires a human
-
-- Decisions about scope expansion or new dependencies — always.
-- API design for public interfaces — propose, don't decide.
-- Anything that touches the security checklist — propose with explicit reasoning.
-- Choosing which IntelliJ extension point to use when multiple are plausible — propose with tradeoffs.
-
-### 8.3 Failure modes to actively resist
+### 8 Failure modes to actively resist
 
 - **Cargo-cult complexity.** "I added a Strategy pattern for cache eviction policies" — no, there is one policy: TTL.
-- **Premature abstraction.** "I made `SecretSource` an interface so we can plug in HashiCorp Vault later." No. Doppler today; Vault when there's a Vault ticket.
-- **Silent scope creep.** Adding a feature flag, a settings option, or an extra command "while I'm in there." If it's not in the ticket, it's a separate PR.
-- **Inventing IntelliJ APIs.** If you're not 100% sure an API exists with the signature you're writing — including extension point names, base class hierarchies, and `plugin.xml` element names — **stop and verify against the SDK docs (§0.1) or the IntelliJ Community source on GitHub**. Hallucinated APIs cost more time than asking. A wrong extension point name in `plugin.xml` produces obscure runtime failures.
-- **Using deprecated APIs.** `ServiceManager.getService()`, `org.jetbrains.intellij` Gradle plugin (1.x), `intellij {}` extension block — all deprecated. Check the SDK docs before using anything that "feels like" the right API.
+- **Premature abstraction.** "I made `SecretSource` an interface so we can plug in HashiCorp Vault later." No. Doppler
+  today; Vault when there's a Vault ticket.
+- **Silent scope creep.** Adding a feature flag, a settings option, or an extra command "while I'm in there." If it's
+  not in the ticket, it's a separate PR.
+- **Inventing IntelliJ APIs.** If you're not 100% sure an API exists with the signature you're writing — including
+  extension point names, base class hierarchies, and `plugin.xml` element names — **stop and verify against the SDK
+  docs (§0.1) or the IntelliJ Community source on GitHub**. Hallucinated APIs cost more time than asking. A wrong
+  extension point name in `plugin.xml` produces obscure runtime failures.
+- **Using deprecated APIs.** `ServiceManager.getService()`, `org.jetbrains.intellij` Gradle plugin (1.x), `intellij {}`
+  extension block — all deprecated. Check the SDK docs before using anything that "feels like" the right API.
 
-### 8.4 Reading order for a new task
-
-1. The ticket (or chat request).
-2. The relevant section of `spec.md`.
-3. The relevant subsection of this file.
-4. The existing code in the package you're changing.
-5. The tests for that package.
-
-Don't skip step 5. Existing tests show you the conventions of this codebase faster than reading style docs.
-
----
-
-## 9. When in doubt
-
-The hierarchy:
-
-1. **Security** (§6) wins over everything.
-2. **IntelliJ Platform SDK docs** (§0.1) win over `spec.md` for any IntelliJ API question.
-3. **Spec** (`spec.md`) wins over convenience.
-4. **Layered architecture** (§2.1) wins over local elegance.
-5. **KISS** wins over cleverness.
-6. **Tests pass on a clean checkout** wins over local-only fixes.
-
-If two rules conflict in a real scenario, surface the conflict in chat. Don't pick silently.
