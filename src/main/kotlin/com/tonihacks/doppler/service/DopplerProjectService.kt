@@ -10,7 +10,7 @@ import com.tonihacks.doppler.settings.DopplerSettingsState
 
 /**
  * Surfaces a CLI failure to the caller. Injectors / UI translate this into a notification
- * and abort the run launch (spec §5.5: never silently launch without secrets).
+ * and abort the run launch.
  *
  * The message is the CLI's stderr verbatim — it must not contain secret values
  * (see `DopplerCliClient` contract).
