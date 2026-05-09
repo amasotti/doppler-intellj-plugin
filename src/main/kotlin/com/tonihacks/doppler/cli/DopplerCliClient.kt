@@ -135,8 +135,14 @@ class DopplerCliClient(
             }
             if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly()
-                stdoutFuture.cancel(true)
-                stderrFuture.cancel(true)
+                // Wait briefly for the stream readers to finish — `destroyForcibly` closes
+                // the child's stdout/stderr, so `readText()` on those streams returns quickly.
+                // Without this drain, the readers keep running on the common ForkJoinPool
+                // after the test method exits and IntelliJ's ThreadLeakTracker flags them.
+                // `cancel(true)` on a `supplyAsync` future is a no-op: ForkJoinPool tasks
+                // are not interrupted by future cancellation.
+                runCatching { stdoutFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
+                runCatching { stderrFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 DopplerResult.Failure("doppler command timed out after ${timeoutMs}ms")
             } else {
                 val stdout = stdoutFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
