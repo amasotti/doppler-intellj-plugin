@@ -61,6 +61,8 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
      *   over Doppler values on collision (spec §5.3 "local wins").
      * @param service caller-supplied so tests can inject a fake without touching the
      *   service container.
+     * @param notifyError overridable in tests to capture notification calls without MockK.
+     * @param notifyWarning overridable in tests to capture notification calls without MockK.
      */
     internal fun injectSecrets(
         project: Project,
@@ -68,13 +70,15 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         configName: String,
         cmdLine: GeneralCommandLine,
         service: DopplerProjectService,
+        notifyError: (Project, String) -> Unit = DopplerNotifier::notifyError,
+        notifyWarning: (Project, String) -> Unit = DopplerNotifier::notifyWarning,
     ) {
         val secrets = try {
             service.fetchSecrets()
         } catch (e: DopplerFetchException) {
             // e.message is CLI stderr verbatim — do NOT log it (spec §6.2 / §11.2).
             // DopplerNotifier posts BALLOON with isLogByDefault=false so it fades, never persists.
-            DopplerNotifier.notifyError(project, e.message ?: "Doppler fetch failed")
+            notifyError(project, checkNotNull(e.message))
             throw e
         }
 
@@ -87,7 +91,7 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
             val tracker = OverrideTracker.getInstance(project)
             if (tracker.markReportedIfNew(configName)) {
                 val keys = result.shadowedKeys.sorted().joinToString(", ")
-                DopplerNotifier.notifyWarning(
+                notifyWarning(
                     project,
                     "${result.shadowedKeys.size} Doppler-managed env var(s) are shadowed by " +
                         "local values in `$configName`: $keys.",
