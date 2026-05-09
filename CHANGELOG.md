@@ -1,0 +1,116 @@
+# Changelog
+
+All notable changes to this project will be documented in this file (created with git cliff).
+
+## [unreleased]
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/924f3878fcee37d5372bea91957625d6ee2bc6fa..6948acc0ac793388c5c971573a861bc65466e655)
+### 🚀 Features
+
+
+- Add toolWindow ([6948acc](https://github.com/amasotti/doppler-intellj-plugin/commit/6948acc0ac793388c5c971573a861bc65466e655))
+
+## [0.1.0] - 2026-05-09
+
+### 🚀 Features
+
+
+- Init repo ([77e2fb5](https://github.com/amasotti/doppler-intellj-plugin/commit/77e2fb5d31f6f3543fc07f10582737260a80ebca))
+
+- Bootstrap project ([cd181c9](https://github.com/amasotti/doppler-intellj-plugin/commit/cd181c9ab46f2044ca556d29e484d238e0d1767b))
+
+- Implement doppler CLI layer ([efd9683](https://github.com/amasotti/doppler-intellj-plugin/commit/efd96830433b569d5095e87a7e0919d77a3fecab))
+
+- Local concurrent cache layer ([d8fe9ac](https://github.com/amasotti/doppler-intellj-plugin/commit/d8fe9acbea36820863b88b8b21439fd57a5a0a18))
+
+- Doppler setting state in .idea folder ([dec7743](https://github.com/amasotti/doppler-intellj-plugin/commit/dec7743c642768939b6c045d6e1c6c95f5bb4ba5))
+
+- Add simple notifier layer ([79d0924](https://github.com/amasotti/doppler-intellj-plugin/commit/79d09241386601d414fc21920b9c04d91691824d))
+
+- Enhance local cache to accept ttl ([cf014ec](https://github.com/amasotti/doppler-intellj-plugin/commit/cf014ece9f95197e26fb7d4c754739103705e502))
+
+- Add JUnit5 as test framework for IntelliJ platform ([801a133](https://github.com/amasotti/doppler-intellj-plugin/commit/801a1336979e2a63fa7aef22f228c2f9d970f0ec))
+
+- Implement DopplerProjectService for managing secrets in IDE projects ([f2aab34](https://github.com/amasotti/doppler-intellj-plugin/commit/f2aab345bcc4c04525bb4dc43d194a2e5abc9bd4))
+
+- DopplerFetchException for CLI failure and improve projectService ([e386093](https://github.com/amasotti/doppler-intellj-plugin/commit/e3860932775d633cce67a06c1acad77a1a07031f))
+
+- Secret merger and core injection (platform-agnostic) ([330de53](https://github.com/amasotti/doppler-intellj-plugin/commit/330de535282c83396bc7ac34ec18d7e96e4f1f5d))
+
+- Add Gradle run configuration extension for Doppler secret injection ([39ab97c](https://github.com/amasotti/doppler-intellj-plugin/commit/39ab97c2a7766ebc801580e8a88076ba6c603134))
+
+- Enhance injectSecrets method with overridable notification callbacks for errors and warnings ([06dc9bf](https://github.com/amasotti/doppler-intellj-plugin/commit/06dc9bf7d26bd798846e8f1599d8d4352d5897eb))
+
+- Implmenet jvm family injector (java / kotlin / spring etc.) ([6a7b717](https://github.com/amasotti/doppler-intellj-plugin/commit/6a7b717e5ce368ef1c295a1df39888a443c5151c))
+
+- Restrict applicability of DopplerJavaRunConfigurationExtension to JVM-family configurations ([c7cf9c1](https://github.com/amasotti/doppler-intellj-plugin/commit/c7cf9c17d648d372f6d7bb377621e720b7a5dab4))
+
+- Implement settings UI (Phase 9) ([c19f514](https://github.com/amasotti/doppler-intellj-plugin/commit/c19f5146fd41bb144174f533dc9b95715bb86819))
+
+- Enhance logging and error handling in DopplerSettingsPanel ([9d5260d](https://github.com/amasotti/doppler-intellj-plugin/commit/9d5260da08215f7c478f712041893b7f66df3cd5))
+
+### 🐛 Bug Fixes
+
+
+- Clarify comment on CLI failure handling in DopplerProjectService ([6a0e507](https://github.com/amasotti/doppler-intellj-plugin/commit/6a0e507715fb5b67005a0cfb30658f67e5e1ccb8))
+
+- Improve stream handling on command timeout in DopplerCliClient ([b86f116](https://github.com/amasotti/doppler-intellj-plugin/commit/b86f11676e86f93a5e0cd01517ed2e3b9dbf3e65))
+
+- Improve process stream handling and ensure proper resource cleanup in DopplerCliClient ([c2be01d](https://github.com/amasotti/doppler-intellj-plugin/commit/c2be01da7f153bd4dfe3f1603d108539b8212759))
+
+- Implement killProcessTree to ensure proper cleanup of process descendants in DopplerCliClient ([febb7dd](https://github.com/amasotti/doppler-intellj-plugin/commit/febb7ddd96e3e9e68fc6160755b7c902951ad5d0))
+
+- Add logging for stream pump termination in DopplerCliClient ([f7fc233](https://github.com/amasotti/doppler-intellj-plugin/commit/f7fc233711b8af0132e94b32ac18b6a4bd1701d0))
+
+- Fix IntelliJ test runtime mismatch in DopplerProjectService tests ([8a8b997](https://github.com/amasotti/doppler-intellj-plugin/commit/8a8b9971717e2e3a5f30a11e92d9b55f7b471e4a))
+
+- Pin JUnit Jupiter version for compatibility with IntelliJ tests ([75a9897](https://github.com/amasotti/doppler-intellj-plugin/commit/75a9897913b6af2162045a3953eacc557a2fd877))
+
+- Improve slug assignment in DopplerProject initialization ([924f387](https://github.com/amasotti/doppler-intellj-plugin/commit/924f3878fcee37d5372bea91957625d6ee2bc6fa))
+
+### 🧪 Testing
+
+
+- Adapt test to let cache store accept ttl ([79f6f5a](https://github.com/amasotti/doppler-intellj-plugin/commit/79f6f5acce66d697e10a108812c61a1bcada77b9))
+
+- TDD approach - write projectService test first ([f561c60](https://github.com/amasotti/doppler-intellj-plugin/commit/f561c60831f8f0fd41689271d26eab9562dd5fd1))
+
+- Improve error handling in fetchSecrets ([c9c00e3](https://github.com/amasotti/doppler-intellj-plugin/commit/c9c00e3ca0f9eee592fb6b3af0a9a6f3fbe40ce5))
+
+- Add test for redactedView entries and values leakage in DopplerProjectService ([a17ad59](https://github.com/amasotti/doppler-intellj-plugin/commit/a17ad59c6bc79cac38a2d086a4578f2e87c01c36))
+
+- Rename overriddenKeys to shadowedKeys in SecretMergerTest for clarity ([f720e22](https://github.com/amasotti/doppler-intellj-plugin/commit/f720e22d902ba843f6efc0c184b205c8180d19da))
+
+### ⚙️ Miscellaneous Tasks
+
+
+- Add license MIT ([a9c0860](https://github.com/amasotti/doppler-intellj-plugin/commit/a9c086076bfae97bdd626a41180ae6b97277a825))
+
+- Update gradle (v9.5) ([9412fd8](https://github.com/amasotti/doppler-intellj-plugin/commit/9412fd891c9f0d89292a876c5ea4639855049141))
+
+- Fix group naming ([e6812f4](https://github.com/amasotti/doppler-intellj-plugin/commit/e6812f491fcd40a11ad3d47a6be2b626695fa2ef))
+
+- Complete build.gradle.kts general setup ([ca35309](https://github.com/amasotti/doppler-intellj-plugin/commit/ca3530979aadada972b6413450d124f9045428c5))
+
+- Detekt configuration ([cfc7c8f](https://github.com/amasotti/doppler-intellj-plugin/commit/cfc7c8f589b46ec98121057109e3693b0a50b123))
+
+- Add github tooling ([d75eb64](https://github.com/amasotti/doppler-intellj-plugin/commit/d75eb64e2386d47068926918cffa4faefd0cfddc))
+
+- Github actions ([44470bb](https://github.com/amasotti/doppler-intellj-plugin/commit/44470bbd8048720d89b8ed8f8aa8e10b774af260))
+
+- Remove caching (pay to use) ([e539414](https://github.com/amasotti/doppler-intellj-plugin/commit/e53941465b0e39b1f3b1251cf16bc0b744f959d1))
+
+- Improve logo ([c699e31](https://github.com/amasotti/doppler-intellj-plugin/commit/c699e31697ad88cd47cd5fe57dcc14e485599027))
+
+- Update kotlin version in kotlinc.xml file ([f577229](https://github.com/amasotti/doppler-intellj-plugin/commit/f5772292acbb7b27c4eaee5b8e7d773895bee493))
+
+- Stop tracking machine-specific .idea/ files ([2500bcd](https://github.com/amasotti/doppler-intellj-plugin/commit/2500bcdeefc546ac2b247c4c53e10afe2244874b))
+
+- Update JDK version from 25 to 21 in build configurations ([86f31c9](https://github.com/amasotti/doppler-intellj-plugin/commit/86f31c911543d276227ffc2802f35e60d56cd101))
+
+### Security
+
+
+- Make sure to trim local paths when storing project config ([4fcad56](https://github.com/amasotti/doppler-intellj-plugin/commit/4fcad567ab05463bc30f829c616277419f207156))
+
+<!-- generated by git-cliff -->
