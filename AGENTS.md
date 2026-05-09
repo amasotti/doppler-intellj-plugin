@@ -205,6 +205,7 @@ If you can't answer "no" with certainty, the change is not ready.
 - Internal helpers can use nullable returns when the absence is meaningful.
 - Never use `!!`. Use `requireNotNull` with an actionable message, or restructure.
 - Don't catch `Throwable` or `Exception` broadly. Catch specifically.
+- **Don't throw across module boundaries — except at the platform-mandated boundary.** The IntelliJ run-config extension contract (`updateJavaParameters`, Gradle `GradleRunConfigurationExtension.attachExtensionsToProcess`, etc.) aborts a launch by *throwing* a `RuntimeException` (typically `ExecutionException`) — there is no `Result` return path. We honour this with **exactly one** sanctioned boundary exception: `DopplerFetchException`, thrown by `DopplerProjectService.fetchSecrets()` and translated by injectors into `notifyError + rethrow`. The exception's `message` is the CLI's stderr verbatim — see the class doc for the (deliberately honest, not over-promising) contract. Everything *internal* to the service layer (CLI calls, cache, settings) returns `DopplerResult` / `Result`; the exception only crosses the `service/` → `injection/` boundary because the platform demands it.
 
 ### 3.5 Threading
 

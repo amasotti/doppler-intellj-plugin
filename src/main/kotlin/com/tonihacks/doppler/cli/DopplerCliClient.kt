@@ -10,7 +10,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import java.io.File
-import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 class DopplerCliClient(
@@ -119,30 +119,28 @@ class DopplerCliClient(
     // Boundary translator. Process I/O legitimately throws IOException, InterruptedException,
     // ExecutionException, TimeoutException and CancellationException — Kotlin has no multi-catch
     // and the contract here is "never throw across the cli/ boundary". Any failure ⇒ Result.Failure.
+    //
+    // Threading note: stdout/stderr are pumped on a per-call dedicated executor (NOT
+    // ForkJoinPool.commonPool). This guarantees the pump threads die deterministically before
+    // `runProcess` returns — `commonPool` workers are recycled and stay alive for ~60s after a
+    // task completes, which IntelliJ's `ThreadLeakTracker` flags as a leak when this test class
+    // shares a JVM with any `@TestApplication` test.
     @Suppress("TooGenericExceptionCaught")
-    private fun runProcess(process: Process, stdin: String?): DopplerResult<String> =
-        try {
+    private fun runProcess(process: Process, stdin: String?): DopplerResult<String> {
+        val streamPool = Executors.newFixedThreadPool(STREAM_POOL_SIZE) { r ->
+            Thread(r, "doppler-cli-stream-pump").apply { isDaemon = true }
+        }
+        return try {
             if (stdin != null) {
                 process.outputStream.bufferedWriter().use { it.write(stdin) }
             } else {
                 process.outputStream.close()
             }
-            val stdoutFuture = CompletableFuture.supplyAsync {
-                process.inputStream.bufferedReader().readText()
-            }
-            val stderrFuture = CompletableFuture.supplyAsync {
-                process.errorStream.bufferedReader().readText()
-            }
+            val stdoutFuture = streamPool.submit<String> { process.inputStream.bufferedReader().readText() }
+            val stderrFuture = streamPool.submit<String> { process.errorStream.bufferedReader().readText() }
+
             if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly()
-                // Wait briefly for the stream readers to finish — `destroyForcibly` closes
-                // the child's stdout/stderr, so `readText()` on those streams returns quickly.
-                // Without this drain, the readers keep running on the common ForkJoinPool
-                // after the test method exits and IntelliJ's ThreadLeakTracker flags them.
-                // `cancel(true)` on a `supplyAsync` future is a no-op: ForkJoinPool tasks
-                // are not interrupted by future cancellation.
-                runCatching { stdoutFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
-                runCatching { stderrFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS) }
                 DopplerResult.Failure("doppler command timed out after ${timeoutMs}ms")
             } else {
                 val stdout = stdoutFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -160,7 +158,16 @@ class DopplerCliClient(
         } catch (e: Exception) {
             process.destroyForcibly()
             DopplerResult.Failure(e.message ?: "Doppler process error")
+        } finally {
+            // Close the parent's read ends so any pump still blocked in `read()` exits with
+            // IOException — `destroyForcibly` SIGKILLs the child but the OS pipe-close is
+            // racy. Belt + suspenders, then shutdownNow + awaitTermination joins the threads.
+            runCatching { process.inputStream.close() }
+            runCatching { process.errorStream.close() }
+            streamPool.shutdownNow()
+            streamPool.awaitTermination(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
         }
+    }
 
     private fun execute(args: List<String>, stdin: String? = null): DopplerResult<String> =
         startProcess(args).flatMap { runProcess(it, stdin) }
@@ -168,6 +175,7 @@ class DopplerCliClient(
     companion object {
         const val DEFAULT_TIMEOUT_MS = 10_000L
         private const val STREAM_DRAIN_TIMEOUT_MS = 2_000L
+        private const val STREAM_POOL_SIZE = 2
     }
 }
 
