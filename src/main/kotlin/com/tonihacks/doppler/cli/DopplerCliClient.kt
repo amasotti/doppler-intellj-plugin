@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.logging.Logger
 
 class DopplerCliClient(
     private val cliPath: String? = null,
@@ -31,8 +32,13 @@ class DopplerCliClient(
                         name = obj.string("name") ?: obj.string("slug") ?: "",
                     )
                 )
-            } catch (e: IllegalArgumentException) {
-                DopplerResult.Failure("Failed to parse me JSON: ${e.message}")
+            } catch (_: IllegalArgumentException) {
+                // Drop `e.message` — the parser error is opaque to the user (they can't fix
+                // malformed CLI JSON) and a future kotlinx-serialization version that
+                // includes a "context window" snippet in IllegalArgumentException.message
+                // would leak secret bytes. See DopplerFetchException KDoc for the full
+                // Phase 7/8 redactor TODO.
+                DopplerResult.Failure("Failed to parse me JSON")
             }
         }
 
@@ -166,7 +172,13 @@ class DopplerCliClient(
             runCatching { process.inputStream.close() }
             runCatching { process.errorStream.close() }
             streamPool.shutdownNow()
-            streamPool.awaitTermination(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            // `false` means a pump is wedged in uninterruptible native `read()` — there is no
+            // portable JVM remedy. Log the case so wedged invocations are visible in idea.log
+            // (JUL is bridged into the platform logger). Tests catch this via ThreadLeakTracker.
+            val drained = streamPool.awaitTermination(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            if (!drained) {
+                LOG.warning("doppler-cli stream pump did not terminate within ${STREAM_DRAIN_TIMEOUT_MS}ms")
+            }
         }
     }
 
@@ -177,6 +189,7 @@ class DopplerCliClient(
         const val DEFAULT_TIMEOUT_MS = 10_000L
         private const val STREAM_DRAIN_TIMEOUT_MS = 2_000L
         private const val STREAM_POOL_SIZE = 2
+        private val LOG: Logger = Logger.getLogger(DopplerCliClient::class.java.name)
     }
 }
 
@@ -189,6 +202,18 @@ class DopplerCliClient(
 //
 // Snapshot descendants BEFORE killing the parent: once the parent dies, descendants are
 // reparented to init/launchd and `process.descendants()` no longer returns them.
+//
+// Residual races this does NOT close (acceptable for the doppler binary, which is a single
+// compiled Go binary that does not fork after startup):
+//   - A descendant that forks a *grandchild* between `descendants().toList()` and our
+//     `forEach { destroyForcibly }` is invisible to the snapshot and leaks. No portable
+//     JDK fix — Linux's `PR_SET_CHILD_SUBREAPER` is unsupported on macOS/Windows.
+//   - The pipe-close + `awaitTermination` in the caller's `finally` is the secondary
+//     defense if a leaked grandchild keeps the pipe open.
+//
+// PID reuse is NOT a concern: `ProcessHandle.destroyForcibly()` dispatches via the JDK
+// handle, which is stable across PID reuse — we cannot accidentally kill an unrelated
+// process whose PID happens to match a dead descendant.
 private fun killProcessTree(process: Process) {
     val descendants = process.descendants().toList()
     process.destroyForcibly()
@@ -205,8 +230,11 @@ private fun parseSecretsMap(json: String): DopplerResult<Map<String, String>> =
             .mapNotNull { (k, v) -> (v as? JsonPrimitive)?.contentOrNull?.let { k to it } }
             .toMap()
         DopplerResult.Success(map)
-    } catch (e: IllegalArgumentException) {
-        DopplerResult.Failure("Failed to parse secrets JSON: ${e.message}")
+    } catch (_: IllegalArgumentException) {
+        // See `me()` for the rationale on dropping `e.message`. Same risk: this parser sees
+        // the raw secrets JSON, so a future parser-message-with-content-snippet would
+        // leak directly.
+        DopplerResult.Failure("Failed to parse secrets JSON")
     }
 
 private fun <T> parseArray(json: String, build: (JsonObject) -> T): DopplerResult<List<T>> =
@@ -214,6 +242,6 @@ private fun <T> parseArray(json: String, build: (JsonObject) -> T): DopplerResul
         DopplerResult.Success(
             Json.parseToJsonElement(json).jsonArray.map { build(it.jsonObject) }
         )
-    } catch (e: IllegalArgumentException) {
-        DopplerResult.Failure("Failed to parse JSON: ${e.message}")
+    } catch (_: IllegalArgumentException) {
+        DopplerResult.Failure("Failed to parse JSON")
     }
