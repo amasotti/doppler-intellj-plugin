@@ -4,17 +4,26 @@ import com.intellij.testFramework.junit5.TestApplication
 import com.intellij.testFramework.junit5.fixture.projectFixture
 import com.tonihacks.doppler.cli.DopplerCliClient
 import com.tonihacks.doppler.cli.DopplerResult
+import com.tonihacks.doppler.cli.DopplerUser
 import com.tonihacks.doppler.settings.DopplerSettingsState
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 @TestApplication
 class DopplerProjectServiceTest {
 
     private val projectFixture = projectFixture()
+
+    @BeforeEach
+    fun resetSettings() {
+        // Tests share the project fixture; reset to defaults so a previous test's mutations
+        // don't bleed across (e.g. dopplerProject left over from an earlier `configure(...)`).
+        DopplerSettingsState.getInstance(projectFixture.get()).loadState(DopplerSettingsState.State())
+    }
 
     private fun configure(
         enabled: Boolean = true,
@@ -40,6 +49,26 @@ class DopplerProjectServiceTest {
     }
 
     @Test
+    fun `fetchSecrets returns empty map when project slug is blank, even if enabled`() {
+        val mockCli = mockk<DopplerCliClient>(relaxed = true)
+        configure(dopplerProject = "", dopplerConfig = "dev")
+        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+
+        assertThat(svc.fetchSecrets()).isEmpty()
+        verify(exactly = 0) { mockCli.downloadSecrets(any(), any()) }
+    }
+
+    @Test
+    fun `fetchSecrets returns empty map when config slug is blank, even if enabled`() {
+        val mockCli = mockk<DopplerCliClient>(relaxed = true)
+        configure(dopplerProject = "my-service", dopplerConfig = "")
+        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+
+        assertThat(svc.fetchSecrets()).isEmpty()
+        verify(exactly = 0) { mockCli.downloadSecrets(any(), any()) }
+    }
+
+    @Test
     fun `fetchSecrets calls CLI on cache miss and reuses cache on second call`() {
         val expected = mapOf("API_KEY" to "abc", "DB_URL" to "postgres://x")
         val mockCli = mockk<DopplerCliClient>()
@@ -50,9 +79,37 @@ class DopplerProjectServiceTest {
         val first = svc.fetchSecrets()
         val second = svc.fetchSecrets()
 
-        assertThat(first).isEqualTo(expected)
-        assertThat(second).isEqualTo(expected)
+        assertThat(first).containsExactlyInAnyOrderEntriesOf(expected)
+        assertThat(second).containsExactlyInAnyOrderEntriesOf(expected)
         verify(exactly = 1) { mockCli.downloadSecrets("my-service", "dev") }
+    }
+
+    @Test
+    fun `returned map redacts toString to defend against stray log statements`() {
+        val mockCli = mockk<DopplerCliClient>()
+        every { mockCli.downloadSecrets("my-service", "dev") } returns
+            DopplerResult.Success(mapOf("API_KEY" to "supersecret-value", "DB_URL" to "postgres://x"))
+        configure()
+        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+
+        val rendered = svc.fetchSecrets().toString()
+
+        assertThat(rendered).doesNotContain("supersecret-value", "postgres", "API_KEY", "DB_URL")
+        assertThat(rendered).isEqualTo("[REDACTED x2]")
+    }
+
+    @Test
+    fun `cacheTtlSeconds setting is read on each fetch — TTL=0 forces re-fetch`() {
+        val mockCli = mockk<DopplerCliClient>()
+        every { mockCli.downloadSecrets(any(), any()) } returns DopplerResult.Success(mapOf("K" to "v"))
+        configure(cacheTtlSeconds = 0)
+        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+
+        svc.fetchSecrets()
+        svc.fetchSecrets()
+
+        // TTL=0 → entry expires immediately on read (`now >= expiresAt`), so each fetch is a CLI call.
+        verify(exactly = 2) { mockCli.downloadSecrets("my-service", "dev") }
     }
 
     @Test
@@ -85,6 +142,10 @@ class DopplerProjectServiceTest {
 
         assertThat(caught).isNotNull
         assertThat(caught?.message).isEqualTo("config not found")
+        // Pin "no chained cause" — a future maintainer wrapping a prior throwable could
+        // smuggle CLI internals (or worse) into the exception's stacktrace via initCause.
+        assertThat(caught?.cause).isNull()
+        assertThat(caught?.suppressed).isEmpty()
     }
 
     @Test
@@ -127,9 +188,7 @@ class DopplerProjectServiceTest {
     @Test
     fun `isAuthenticated reflects CLI me probe result`() {
         val authedCli = mockk<DopplerCliClient>()
-        every { authedCli.me() } returns DopplerResult.Success(
-            com.tonihacks.doppler.cli.DopplerUser(email = "", name = "my-laptop")
-        )
+        every { authedCli.me() } returns DopplerResult.Success(DopplerUser(email = "", name = "my-laptop"))
         val unauthedCli = mockk<DopplerCliClient>()
         every { unauthedCli.me() } returns DopplerResult.Failure("unauthorized")
 
