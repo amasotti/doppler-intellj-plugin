@@ -48,7 +48,7 @@ class DopplerCliClient(
                 DopplerProject(
                     id = it.string("id") ?: "",
                     name = it.string("name") ?: "",
-                    slug = it.string("slug") ?: "",
+                    slug = it.string("slug") ?: it.string("id") ?: "",
                 )
             }
         }
