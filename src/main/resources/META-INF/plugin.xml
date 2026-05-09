@@ -1,0 +1,19 @@
+<idea-plugin>
+    <id>com.tonihacks.doppler-intellij</id>
+    <name>Doppler</name>
+    <vendor url="https://github.com/amasotti/doppler-intellj" email="toniomasotti@gmail.com">Antonio Masotti</vendor>
+
+    <description><![CDATA[
+        Inject Doppler-managed secrets into JetBrains run configurations and browse / edit them from a tool window.
+        <br/>
+        Requires the Doppler CLI to be installed and authenticated (<code>doppler login</code>).
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <resource-bundle>messages.DopplerBundle</resource-bundle>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Services, run-config extensions, tool windows, etc. registered in later phases -->
+    </extensions>
+</idea-plugin>
