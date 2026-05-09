@@ -3,20 +3,20 @@ package com.tonihacks.doppler.service
 import com.intellij.testFramework.junit5.TestApplication
 import com.intellij.testFramework.junit5.fixture.projectFixture
 import com.tonihacks.doppler.cli.DopplerCliClient
-import com.tonihacks.doppler.cli.DopplerResult
-import com.tonihacks.doppler.cli.DopplerUser
 import com.tonihacks.doppler.settings.DopplerSettingsState
-import io.mockk.every
-import io.mockk.mockk
-import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
 @TestApplication
 class DopplerProjectServiceTest {
 
     private val projectFixture = projectFixture()
+
+    @TempDir
+    lateinit var tempDir: File
 
     @BeforeEach
     fun resetSettings() {
@@ -38,59 +38,101 @@ class DopplerProjectServiceTest {
         s.cacheTtlSeconds = cacheTtlSeconds
     }
 
+    private fun fakeCli(script: String): DopplerCliClient {
+        val f = File.createTempFile("doppler-", ".sh", tempDir)
+        f.writeText("#!/bin/sh\n$script\n")
+        f.setExecutable(true)
+        return DopplerCliClient(f.absolutePath)
+    }
+
+    private fun marker(name: String = "calls.txt"): File = File(tempDir, name)
+
+    private fun callCount(marker: File): Int =
+        marker.takeIf(File::exists)?.readLines()?.size ?: 0
+
+    private fun successfulSecretsCli(
+        secretsJson: String,
+        marker: File = marker(),
+    ): DopplerCliClient =
+        fakeCli(
+            """
+            echo "${'$'}*" >> "${marker.absolutePath}"
+            cat <<'EOF'
+            $secretsJson
+            EOF
+            """.trimIndent()
+        )
+
+    private fun failingSecretsCli(
+        stderr: String,
+        marker: File = marker(),
+        exitCode: Int = 1,
+    ): DopplerCliClient =
+        fakeCli(
+            """
+            echo "${'$'}*" >> "${marker.absolutePath}"
+            echo "$stderr" >&2
+            exit $exitCode
+            """.trimIndent()
+        )
+
     @Test
     fun `fetchSecrets returns empty map when disabled and never calls CLI`() {
-        val mockCli = mockk<DopplerCliClient>(relaxed = true)
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"UNUSED":"value"}""", marker)
         configure(enabled = false)
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         assertThat(svc.fetchSecrets()).isEmpty()
-        verify(exactly = 0) { mockCli.downloadSecrets(any(), any()) }
+        assertThat(callCount(marker)).isZero()
     }
 
     @Test
     fun `fetchSecrets returns empty map when project slug is blank, even if enabled`() {
-        val mockCli = mockk<DopplerCliClient>(relaxed = true)
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"UNUSED":"value"}""", marker)
         configure(dopplerProject = "", dopplerConfig = "dev")
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         assertThat(svc.fetchSecrets()).isEmpty()
-        verify(exactly = 0) { mockCli.downloadSecrets(any(), any()) }
+        assertThat(callCount(marker)).isZero()
     }
 
     @Test
     fun `fetchSecrets returns empty map when config slug is blank, even if enabled`() {
-        val mockCli = mockk<DopplerCliClient>(relaxed = true)
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"UNUSED":"value"}""", marker)
         configure(dopplerProject = "my-service", dopplerConfig = "")
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         assertThat(svc.fetchSecrets()).isEmpty()
-        verify(exactly = 0) { mockCli.downloadSecrets(any(), any()) }
+        assertThat(callCount(marker)).isZero()
     }
 
     @Test
     fun `fetchSecrets calls CLI on cache miss and reuses cache on second call`() {
         val expected = mapOf("API_KEY" to "abc", "DB_URL" to "postgres://x")
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets("my-service", "dev") } returns DopplerResult.Success(expected)
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"API_KEY":"abc","DB_URL":"postgres://x"}""", marker)
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         val first = svc.fetchSecrets()
         val second = svc.fetchSecrets()
 
         assertThat(first).containsExactlyInAnyOrderEntriesOf(expected)
         assertThat(second).containsExactlyInAnyOrderEntriesOf(expected)
-        verify(exactly = 1) { mockCli.downloadSecrets("my-service", "dev") }
+        assertThat(callCount(marker)).isEqualTo(1)
+        assertThat(marker.readText()).contains(
+            "secrets download --project my-service --config dev --no-file --format json"
+        )
     }
 
     @Test
     fun `returned map redacts toString to defend against stray log statements`() {
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets("my-service", "dev") } returns
-            DopplerResult.Success(mapOf("API_KEY" to "supersecret-value", "DB_URL" to "postgres://x"))
+        val cli = successfulSecretsCli("""{"API_KEY":"supersecret-value","DB_URL":"postgres://x"}""")
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         val rendered = svc.fetchSecrets().toString()
 
@@ -106,11 +148,9 @@ class DopplerProjectServiceTest {
         // these collections, env-injection callers iterating the map will see redacted
         // sentinels and break. The only correct fix would be a different return type
         // (e.g. SecretBundle) — that's a Phase 7+ decision, not a sneak fix in cli/service.
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets("my-service", "dev") } returns
-            DopplerResult.Success(mapOf("API_KEY" to "supersecret-value"))
+        val cli = successfulSecretsCli("""{"API_KEY":"supersecret-value"}""")
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         val m = svc.fetchSecrets()
 
@@ -120,38 +160,37 @@ class DopplerProjectServiceTest {
 
     @Test
     fun `cacheTtlSeconds setting is read on each fetch — TTL=0 forces re-fetch`() {
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets(any(), any()) } returns DopplerResult.Success(mapOf("K" to "v"))
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"K":"v"}""", marker)
         configure(cacheTtlSeconds = 0)
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         svc.fetchSecrets()
         svc.fetchSecrets()
 
         // TTL=0 → entry expires immediately on read (`now >= expiresAt`), so each fetch is a CLI call.
-        verify(exactly = 2) { mockCli.downloadSecrets("my-service", "dev") }
+        assertThat(callCount(marker)).isEqualTo(2)
     }
 
     @Test
     fun `invalidateCache forces a re-fetch from CLI`() {
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets(any(), any()) } returns DopplerResult.Success(mapOf("K" to "v"))
+        val marker = marker()
+        val cli = successfulSecretsCli("""{"K":"v"}""", marker)
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         svc.fetchSecrets()
         svc.invalidateCache()
         svc.fetchSecrets()
 
-        verify(exactly = 2) { mockCli.downloadSecrets("my-service", "dev") }
+        assertThat(callCount(marker)).isEqualTo(2)
     }
 
     @Test
     fun `fetchSecrets throws DopplerFetchException with verbatim CLI error on Failure`() {
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets(any(), any()) } returns DopplerResult.Failure("config not found", 1)
+        val cli = failingSecretsCli("config not found", exitCode = 1)
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         val caught: DopplerFetchException? = try {
             svc.fetchSecrets()
@@ -170,15 +209,23 @@ class DopplerProjectServiceTest {
 
     @Test
     fun `fetchSecrets does not cache failures`() {
-        var callCount = 0
-        val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets(any(), any()) } answers {
-            callCount++
-            if (callCount == 1) DopplerResult.Failure("transient network error", -1)
-            else DopplerResult.Success(mapOf("K" to "v"))
-        }
+        val marker = marker()
+        val stateFile = File(tempDir, "secrets-call-state.txt")
+        val cli = fakeCli(
+            """
+            echo "${'$'}*" >> "${marker.absolutePath}"
+            if [ ! -f "${stateFile.absolutePath}" ]; then
+              touch "${stateFile.absolutePath}"
+              echo "transient network error" >&2
+              exit 1
+            fi
+            cat <<'EOF'
+            {"K":"v"}
+            EOF
+            """.trimIndent()
+        )
         configure()
-        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+        val svc = DopplerProjectService(projectFixture.get()) { cli }
 
         try {
             svc.fetchSecrets()
@@ -188,15 +235,13 @@ class DopplerProjectServiceTest {
         val secondAttempt = svc.fetchSecrets()
 
         assertThat(secondAttempt).containsEntry("K", "v")
-        verify(exactly = 2) { mockCli.downloadSecrets(any(), any()) }
+        assertThat(callCount(marker)).isEqualTo(2)
     }
 
     @Test
     fun `isCliAvailable reflects CLI version probe result`() {
-        val happyCli = mockk<DopplerCliClient>()
-        every { happyCli.version() } returns DopplerResult.Success("v3.69.0")
-        val sadCli = mockk<DopplerCliClient>()
-        every { sadCli.version() } returns DopplerResult.Failure("not found")
+        val happyCli = fakeCli("""echo "v3.69.0"""")
+        val sadCli = fakeCli("""echo "not found" >&2; exit 1""")
 
         val happy = DopplerProjectService(projectFixture.get()) { happyCli }
         val sad = DopplerProjectService(projectFixture.get()) { sadCli }
@@ -207,10 +252,14 @@ class DopplerProjectServiceTest {
 
     @Test
     fun `isAuthenticated reflects CLI me probe result`() {
-        val authedCli = mockk<DopplerCliClient>()
-        every { authedCli.me() } returns DopplerResult.Success(DopplerUser(email = "", name = "my-laptop"))
-        val unauthedCli = mockk<DopplerCliClient>()
-        every { unauthedCli.me() } returns DopplerResult.Failure("unauthorized")
+        val authedCli = fakeCli(
+            """
+            cat <<'EOF'
+            {"name":"my-laptop"}
+            EOF
+            """.trimIndent()
+        )
+        val unauthedCli = fakeCli("""echo "unauthorized" >&2; exit 1""")
 
         val authed = DopplerProjectService(projectFixture.get()) { authedCli }
         val unauthed = DopplerProjectService(projectFixture.get()) { unauthedCli }
