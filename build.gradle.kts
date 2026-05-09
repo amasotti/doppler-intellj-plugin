@@ -22,6 +22,7 @@ repositories {
 dependencies {
     intellijPlatform {
         intellijIdeaCommunity("2024.2")
+        bundledPlugin("com.intellij.gradle")
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.JUnit5)
     }

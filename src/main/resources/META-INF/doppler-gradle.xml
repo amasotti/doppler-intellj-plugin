@@ -1,0 +1,16 @@
+<idea-plugin>
+    <!--
+        Optional Gradle family extension. Loaded only when com.intellij.gradle is present,
+        so the plugin loads cleanly in PyCharm, PhpStorm, WebStorm, and other IDEs that
+        ship without Gradle support.
+
+        EP: com.intellij.externalSystem.runConfigurationEx
+        Impl: ExternalSystemRunConfigurationExtension
+        Guarded at runtime by isApplicableFor (GradleConstants.SYSTEM_ID check) so Maven,
+        npm, and other ExternalSystem run configs are not affected.
+    -->
+    <extensions defaultExtensionNs="com.intellij">
+        <externalSystem.runConfigurationEx
+            implementation="com.tonihacks.doppler.injection.gradle.DopplerGradleRunConfigurationExtension"/>
+    </extensions>
+</idea-plugin>

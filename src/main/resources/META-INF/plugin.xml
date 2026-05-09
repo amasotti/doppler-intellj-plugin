@@ -11,6 +11,12 @@
 
     <depends>com.intellij.modules.platform</depends>
 
+    <!--
+        Gradle family injector — optional so the plugin loads cleanly in IDEs without Gradle
+        support (PyCharm, PhpStorm, WebStorm Community, etc.).
+    -->
+    <depends optional="true" config-file="doppler-gradle.xml">com.intellij.gradle</depends>
+
     <resource-bundle>messages.DopplerBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
