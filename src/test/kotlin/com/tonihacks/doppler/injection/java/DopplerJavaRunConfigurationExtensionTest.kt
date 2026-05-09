@@ -1,6 +1,9 @@
 package com.tonihacks.doppler.injection.java
 
+import com.intellij.execution.RunManager
+import com.intellij.execution.application.ApplicationConfigurationType
 import com.intellij.execution.configurations.JavaParameters
+import com.intellij.execution.configurations.RunConfigurationBase
 import com.intellij.testFramework.junit5.TestApplication
 import com.intellij.testFramework.junit5.fixture.projectFixture
 import com.tonihacks.doppler.cli.DopplerCliClient
@@ -9,6 +12,7 @@ import com.tonihacks.doppler.service.DopplerProjectService
 import com.tonihacks.doppler.settings.DopplerSettingsState
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
+import org.jetbrains.plugins.gradle.service.execution.GradleExternalTaskConfigurationType
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
@@ -66,6 +70,25 @@ class DopplerJavaRunConfigurationExtensionTest {
     private fun makeService(cli: DopplerCliClient): DopplerProjectService =
         DopplerProjectService(projectFixture.get()) { cli }
 
+    // ── isApplicableFor ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `isApplicableFor returns true for Java ApplicationConfiguration`() {
+        // ApplicationConfiguration extends JavaRunConfigurationBase extends RunConfigurationBase
+        val type = ApplicationConfigurationType.getInstance()
+        val settings = RunManager.getInstance(projectFixture.get())
+            .createConfiguration("test-app", type.configurationFactories.first())
+        assertThat(ext.isApplicableFor(settings.configuration as RunConfigurationBase<*>)).isTrue()
+    }
+
+    @Test
+    fun `isApplicableFor returns false for Gradle external system configuration`() {
+        val type = GradleExternalTaskConfigurationType.getInstance()
+        val settings = RunManager.getInstance(projectFixture.get())
+            .createConfiguration("test-gradle", type.factory)
+        assertThat(ext.isApplicableFor(settings.configuration as RunConfigurationBase<*>)).isFalse()
+    }
+
     // ── injectSecrets — happy path ─────────────────────────────────────────────
 
     @Test
@@ -88,12 +111,16 @@ class DopplerJavaRunConfigurationExtensionTest {
     fun `injectSecrets does not modify params when disabled`() {
         configureSettings(enabled = false)
         val params = JavaParameters()
-        params.env["EXISTING_VAR"] = "original"
+        // Pre-populate params to verify it is NOT cleared when disabled.
+        // setEnv is the IntelliJ API for replacing env; direct mutation via params.env
+        // uses the internal HashMap reference directly.
+        @Suppress("UNCHECKED_CAST")
+        (params.env as? MutableMap<String, String>)?.set("EXISTING_VAR", "original")
         val envBefore = params.env.toMap()
 
         ext.injectSecrets(
             project = projectFixture.get(),
-            existingEnv = emptyMap(),
+            existingEnv = params.env.toMap(), // mirror the production path
             configName = "java-cfg-02",
             params = params,
             service = makeService(jsonCli("""{"UNUSED":"value"}""")),

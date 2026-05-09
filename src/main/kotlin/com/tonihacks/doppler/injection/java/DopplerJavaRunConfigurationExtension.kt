@@ -1,5 +1,6 @@
 package com.tonihacks.doppler.injection.java
 
+import com.intellij.execution.JavaRunConfigurationBase
 import com.intellij.execution.RunConfigurationExtension
 import com.intellij.execution.configurations.JavaParameters
 import com.intellij.execution.configurations.RunConfigurationBase
@@ -38,7 +39,13 @@ import com.tonihacks.doppler.service.DopplerProjectService
  */
 class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
 
-    override fun isApplicableFor(config: RunConfigurationBase<*>): Boolean = true
+    // Filter to JVM-family configs only. RunConfigurationExtension also guards
+    // readExternal/writeExternal/validateConfiguration/createEditor — returning true
+    // unconditionally attaches all those hooks to every config type (Gradle, Shell, Docker).
+    // JavaRunConfigurationBase is the common parent for Application, JUnit, TestNG,
+    // Spring Boot Application, and Kotlin run configurations.
+    override fun isApplicableFor(config: RunConfigurationBase<*>): Boolean =
+        config is JavaRunConfigurationBase
 
     override fun <T : RunConfigurationBase<*>> updateJavaParameters(
         configuration: T,
@@ -88,7 +95,11 @@ class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
         if (secrets.isEmpty()) return
 
         val result = SecretMerger.merge(existingEnv, secrets)
-        params.env = result.merged
+        // Copy out of the redactedView proxy into a plain HashMap before handing to
+        // JavaParameters.setEnv — some platform paths attempt mutation after the fact,
+        // and the proxy (delegating Map<String,String>, not MutableMap) may throw on
+        // those calls. HashMap is the type the platform expects internally.
+        params.env = HashMap(result.merged)
 
         if (result.shadowedKeys.isNotEmpty()) {
             val tracker = OverrideTracker.getInstance(project)
