@@ -1,0 +1,16 @@
+[
+  {
+    "id": "proj_01",
+    "slug": "my-service",
+    "name": "My Service",
+    "description": "Demo service",
+    "created_at": "2025-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "proj_02",
+    "slug": "another-service",
+    "name": "Another Service",
+    "description": "",
+    "created_at": "2025-01-02T00:00:00.000Z"
+  }
+]
