@@ -140,7 +140,7 @@ class DopplerCliClient(
             val stderrFuture = streamPool.submit<String> { process.errorStream.bufferedReader().readText() }
 
             if (!process.waitFor(timeoutMs, TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly()
+                killProcessTree(process)
                 DopplerResult.Failure("doppler command timed out after ${timeoutMs}ms")
             } else {
                 val stdout = stdoutFuture.get(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
@@ -156,12 +156,13 @@ class DopplerCliClient(
                 }
             }
         } catch (e: Exception) {
-            process.destroyForcibly()
+            killProcessTree(process)
             DopplerResult.Failure(e.message ?: "Doppler process error")
         } finally {
             // Close the parent's read ends so any pump still blocked in `read()` exits with
-            // IOException — `destroyForcibly` SIGKILLs the child but the OS pipe-close is
-            // racy. Belt + suspenders, then shutdownNow + awaitTermination joins the threads.
+            // IOException — `killProcessTree` SIGKILLs the entire process tree, but the OS
+            // pipe-close is racy. Belt + suspenders, then shutdownNow + awaitTermination
+            // joins the threads.
             runCatching { process.inputStream.close() }
             runCatching { process.errorStream.close() }
             streamPool.shutdownNow()
@@ -177,6 +178,21 @@ class DopplerCliClient(
         private const val STREAM_DRAIN_TIMEOUT_MS = 2_000L
         private const val STREAM_POOL_SIZE = 2
     }
+}
+
+// Kills the process AND all of its descendants. `destroyForcibly()` only SIGKILLs the
+// immediate child; if our shell wrapper forked another process (e.g. `sh -c "sleep 30"`
+// → sh forks sleep), SIGKILL on sh leaves sleep orphaned **and still holding the read end
+// of our stdout/stderr pipes**. The pump thread then blocks in `read()` for the full
+// child-process lifetime — past `awaitTermination` — and `ThreadLeakTracker` flags it on
+// test teardown.
+//
+// Snapshot descendants BEFORE killing the parent: once the parent dies, descendants are
+// reparented to init/launchd and `process.descendants()` no longer returns them.
+private fun killProcessTree(process: Process) {
+    val descendants = process.descendants().toList()
+    process.destroyForcibly()
+    descendants.forEach { it.destroyForcibly() }
 }
 
 private fun JsonObject.string(key: String): String? =
