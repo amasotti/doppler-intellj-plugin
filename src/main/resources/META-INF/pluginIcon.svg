@@ -1,5 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 40 40">
-  <rect width="40" height="40" rx="8" fill="#1C2333"/>
-  <text x="20" y="27" font-size="20" text-anchor="middle" fill="#00D8FF"
-        font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-weight="bold">D</text>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient definition: cyan to magenta to pink, top to bottom -->
+  <defs>
+    <linearGradient id="neonGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#00ffff;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#ff00ff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ff66ff;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+
+  <!-- Background: very dark square with rounded corners -->
+  <rect x="0" y="0" width="256" height="256" rx="20" ry="20" fill="#141414" />
+
+  <!-- Group for neon elements, all with consistent glowing stroke style -->
+  <g stroke="url(#neonGradient)" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+
+    <!-- Left bracket (<) as simple polyline -->
+    <polyline points="60 115 40 128 60 141"/>
+
+    <!-- Right bracket (>) as simple polyline -->
+    <polyline points="196 115 216 128 196 141"/>
+
+    <!-- Outer contour trace of the key (top circle + shaft + teeth) as a single connected closed path -->
+    <path d="M 128 45 A 45 45 0 1 1 128 135 M 128 135 L 128 170 L 115 170 L 115 180 L 128 180 L 128 190 L 115 190 L 115 200 L 128 200 L 128 210 L 115 210 L 115 220 L 128 220 L 128 135 M 128 135 L 128 170..."/>
+
+    <!-- Trace of the internal keyhole hole shape as another connected closed path within the key head -->
+    <path d="M 128 80 A 15 15 0 1 1 128 110 M 128 110 L 128 115"/>
+  </g>
 </svg>
