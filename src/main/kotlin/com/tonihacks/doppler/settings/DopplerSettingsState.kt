@@ -26,7 +26,15 @@ class DopplerSettingsState : PersistentStateComponent<DopplerSettingsState.State
         var dopplerConfig: String = "",
         var cacheTtlSeconds: Int = DEFAULT_CACHE_TTL_SECONDS,
         var cliPath: String = "",
-    )
+    ) {
+        // Override the data-class auto-generated toString so a stray log statement cannot
+        // leak filesystem paths (cliPath) or internal naming (project / config slugs).
+        // Defense in depth — none of these are secrets, but they shouldn't
+        // surface in logs either. Same precedent as SecretCache.Entry.
+        override fun toString(): String =
+            "State(enabled=$enabled, dopplerProject=<redacted>, dopplerConfig=<redacted>, " +
+                "cacheTtlSeconds=$cacheTtlSeconds, cliPath=<redacted>)"
+    }
 
     private var stateInstance: State = State()
 

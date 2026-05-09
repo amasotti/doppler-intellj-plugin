@@ -1,5 +1,6 @@
 package com.tonihacks.doppler.settings
 
+import com.intellij.util.xmlb.XmlSerializer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -11,8 +12,26 @@ class DopplerSettingsStateTest {
         assertThat(settings.state.enabled).isTrue()
         assertThat(settings.state.dopplerProject).isEmpty()
         assertThat(settings.state.dopplerConfig).isEmpty()
-        assertThat(settings.state.cacheTtlSeconds).isEqualTo(60)
+        assertThat(settings.state.cacheTtlSeconds).isEqualTo(DopplerSettingsState.DEFAULT_CACHE_TTL_SECONDS)
         assertThat(settings.state.cliPath).isEmpty()
+    }
+
+    @Test
+    fun `state survives XML round-trip preserving every field`() {
+        // Verifies the actual PersistentStateComponent contract: serialize → XML → deserialize.
+        // Catches binding mistakes (typo'd field name, wrong type) that unit-only tests miss.
+        val original = DopplerSettingsState.State(
+            enabled = false,
+            dopplerProject = "my-service",
+            dopplerConfig = "dev",
+            cacheTtlSeconds = 120,
+            cliPath = "/usr/local/bin/doppler",
+        )
+
+        val element = XmlSerializer.serialize(original)
+        val roundtripped = XmlSerializer.deserialize(element, DopplerSettingsState.State::class.java)
+
+        assertThat(roundtripped).isEqualTo(original)
     }
 
     @Test
