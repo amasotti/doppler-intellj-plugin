@@ -447,7 +447,7 @@ doppler-jetbrains/
 ├── spec.md                          # this file
 ├── src/
 │   ├── main/
-│   │   ├── kotlin/dev/masotti/doppler/
+│   │   ├── kotlin/com/tonihacks/doppler/
 │   │   │   ├── cli/                 # DopplerCliClient + types
 │   │   │   ├── cache/               # SecretCache
 │   │   │   ├── service/             # DopplerProjectService
@@ -467,7 +467,7 @@ doppler-jetbrains/
 │   │       └── messages/
 │   │           └── DopplerBundle.properties
 │   └── test/
-│       └── kotlin/dev/masotti/doppler/
+│       └── kotlin/com/tonihacks/doppler/
 │           ├── cli/
 │           ├── cache/
 │           ├── service/
