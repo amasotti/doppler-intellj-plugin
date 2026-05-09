@@ -220,6 +220,7 @@ class DopplerToolWindowPanel(
         }
     }
 
+    @Suppress("ReturnCount")
     private fun showAddDialog() {
         val nameField = JTextField(20)
         val valueField = JTextField(20)

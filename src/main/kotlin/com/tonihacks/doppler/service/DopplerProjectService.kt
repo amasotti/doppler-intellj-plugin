@@ -8,6 +8,7 @@ import com.tonihacks.doppler.cache.SecretCache
 import com.tonihacks.doppler.cli.DopplerCliClient
 import com.tonihacks.doppler.cli.DopplerResult
 import com.tonihacks.doppler.settings.DopplerSettingsState
+import org.jetbrains.annotations.TestOnly
 
 /**
  * Single source of truth for "what secrets does this IDE project use?". Wires
@@ -23,10 +24,16 @@ import com.tonihacks.doppler.settings.DopplerSettingsState
  * the client would create a stale-config-injection risk on settings change.
  */
 @Service(Service.Level.PROJECT)
-class DopplerProjectService(
-    private val project: Project,
-    private val cliFactory: () -> DopplerCliClient = { defaultCli(project) },
-) {
+class DopplerProjectService(private val project: Project) {
+
+    // Overridden by the @TestOnly secondary constructor so tests can inject a fake CLI
+    // without touching the production code path.
+    private var cliFactory: () -> DopplerCliClient = { defaultCli(project) }
+
+    @TestOnly
+    constructor(project: Project, cliFactory: () -> DopplerCliClient) : this(project) {
+        this.cliFactory = cliFactory
+    }
 
     private val cache = SecretCache()
 
