@@ -75,8 +75,10 @@ The following are explicitly **out of scope** for v1. They are listed here so th
 
 - As a developer, when I press **Run** or **Debug** on any supported run configuration, Doppler secrets are fetched (or
   read from cache) and merged into the launched process's environment.
-- As a developer, if a run configuration manually sets an environment variable that Doppler also provides, **Doppler
-  wins** and I get a one-time notification per session telling me which keys were overridden.
+- As a developer, if a run configuration manually sets an environment variable that Doppler also provides, **the local
+  value wins** (so I can experiment with a temporary override during development) and I get a one-time notification
+  per session telling me which Doppler-managed keys are currently shadowed by local overrides — so I'm not surprised
+  when CI runs against the Doppler-managed values.
 - As a developer, if Doppler injection fails (CLI missing, network down, config invalid), I get a clear error in the Run
   output and the launch is **aborted** — never silently launched without secrets.
 
@@ -154,9 +156,14 @@ launches." Each run-configuration family has its own extension point. The plugin
    calls it.
 2. **Per-family adapter** — A thin class per run-configuration family that calls the core service and merges secrets
    into that family's parameter object.
-3. **Conflict policy** — Doppler keys overwrite manually-set env vars. Overridden keys are collected into a
-   session-level `OverrideTracker` and shown once per session via a balloon notification ("Doppler overrode N env vars
-   in `<configName>`. Click to see details.").
+3. **Conflict policy** — manually-set run-config env vars **win** over Doppler-managed values; Doppler is the
+   fallback. Rationale: during development a dev wants to experiment with a temporary override (e.g. point at a
+   personal sandbox, set a different feature flag) without rotating the team's Doppler config. The trade-off is the
+   risk of a stale local override silently shadowing a rotated Doppler secret — which is why the shadowed keys are
+   collected into a session-level `OverrideTracker` and surfaced once per session per config via a balloon warning
+   ("N Doppler-managed env vars are shadowed by local values in `<configName>`: `<keys>`."). The notification keeps
+   the developer aware that the local environment is diverging from CI / staging / prod, where Doppler-managed values
+   apply.
 
 **v1 ships these adapters:**
 
@@ -205,7 +212,7 @@ sequenceDiagram
         Service ->> Cache: put(project, config, secrets)
     end
     Service -->> Injector: Map<String, String>
-    Injector ->> Injector: merge with existing env (Doppler wins)
+    Injector ->> Injector: merge with existing env (local wins; warn on shadow)
     Injector ->> IDE: params with Doppler env vars
     IDE ->> User: Process launched with secrets
 ```
@@ -310,7 +317,7 @@ A single `NotificationGroup` named **"Doppler"** with these notifications:
 
 | Event                       | Type        | Content                                                         |
 |-----------------------------|-------------|-----------------------------------------------------------------|
-| First override of a session | Warning     | "Doppler overrode N env vars in `<configName>`: `<keys>`."      |
+| First override of a session | Warning     | "N Doppler-managed env vars are shadowed by local values in `<configName>`: `<keys>`." |
 | CLI missing                 | Error       | "Doppler CLI not found on PATH. [Install Doppler CLI]"          |
 | Auth missing                | Error       | "Doppler not authenticated. Run `doppler login` in a terminal." |
 | Save success                | Information | "Saved N secret(s) to `<project>/<config>`."                    |
@@ -398,7 +405,7 @@ These are non-negotiable:
    data shape disclosed in settings.)
 6. **Subprocess argument hygiene.** Secret values for `secrets set` are passed via stdin, not argv, so they don't leak
    into `ps`/`/proc`.
-7. **Conflict notifications list keys, not values.** "Doppler overrode `DATABASE_URL`" — never the value.
+7. **Conflict notifications list keys, not values.** "Local override shadows Doppler-managed `DATABASE_URL`" — never the value.
 
 ## 12. Open issues / parking lot
 
