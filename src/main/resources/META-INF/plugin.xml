@@ -17,6 +17,13 @@
     -->
     <depends optional="true" config-file="doppler-gradle.xml">com.intellij.gradle</depends>
 
+    <!--
+        Java family injector — optional so the plugin loads cleanly in IDEs without Java
+        support (WebStorm, PhpStorm, GoLand, etc.). Covers all JVM run configs that build
+        a JavaParameters: Application, JUnit, TestNG, Spring Boot Application.
+    -->
+    <depends optional="true" config-file="doppler-java.xml">com.intellij.java</depends>
+
     <resource-bundle>messages.DopplerBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">

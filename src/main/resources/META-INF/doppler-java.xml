@@ -1,0 +1,19 @@
+<idea-plugin>
+    <!--
+        Optional Java family extension. Loaded only when com.intellij.java is present
+        (IntelliJ IDEA Ultimate + Community). Covers all JVM run configurations that
+        build a JavaParameters object: Application (Java + Kotlin), JUnit, TestNG,
+        Spring Boot Application.
+
+        EP: com.intellij.runConfigurationExtension
+        Impl: RunConfigurationExtension.updateJavaParameters
+
+        isApplicableFor returns true for all configs — the extension point itself only
+        fires for configurations whose executor builds a JavaParameters, so non-Java
+        configs are never reached.
+    -->
+    <extensions defaultExtensionNs="com.intellij">
+        <runConfigurationExtension
+            implementation="com.tonihacks.doppler.injection.java.DopplerJavaRunConfigurationExtension"/>
+    </extensions>
+</idea-plugin>

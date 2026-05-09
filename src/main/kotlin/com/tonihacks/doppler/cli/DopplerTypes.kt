@@ -30,7 +30,10 @@ sealed class DopplerResult<out T> {
      */
     fun <R> map(transform: (T) -> R): DopplerResult<R> = when (this) {
         is Success -> runCatching { Success(transform(value)) }
-            .getOrElse { Failure("Failed to transform result: ${it.message}") }
+            // Fixed (Phase 8 carry-forward from Phase 7 review): was `"... ${it.message}"` which
+            // forwards arbitrary exception messages into Failure.error. A future transform that
+            // receives a secret value could pipe it into DopplerFetchException.message via this path.
+            .getOrElse { Failure("Failed to process result") }
         is Failure -> this
     }
 
@@ -43,7 +46,8 @@ sealed class DopplerResult<out T> {
      */
     fun <R> flatMap(transform: (T) -> DopplerResult<R>): DopplerResult<R> = when (this) {
         is Success -> runCatching { transform(value) }
-            .getOrElse { Failure("Failed to transform result: ${it.message}") }
+            // Same hardening as map — fixed string, no exception message forwarding.
+            .getOrElse { Failure("Failed to process result") }
         is Failure -> this
     }
 }
