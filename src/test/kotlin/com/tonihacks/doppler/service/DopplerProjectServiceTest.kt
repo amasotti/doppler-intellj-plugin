@@ -9,7 +9,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import org.assertj.core.api.Assertions.assertThat
-import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
 
 @TestApplication
@@ -77,21 +76,34 @@ class DopplerProjectServiceTest {
         configure()
         val svc = DopplerProjectService(projectFixture.get()) { mockCli }
 
-        assertThatThrownBy { svc.fetchSecrets() }
-            .isInstanceOf(DopplerFetchException::class.java)
-            .hasMessage("config not found")
+        val caught: DopplerFetchException? = try {
+            svc.fetchSecrets()
+            null
+        } catch (e: DopplerFetchException) {
+            e
+        }
+
+        assertThat(caught).isNotNull
+        assertThat(caught?.message).isEqualTo("config not found")
     }
 
     @Test
     fun `fetchSecrets does not cache failures`() {
+        var callCount = 0
         val mockCli = mockk<DopplerCliClient>()
-        every { mockCli.downloadSecrets(any(), any()) } returns
-            DopplerResult.Failure("transient network error", -1) andThen
-            DopplerResult.Success(mapOf("K" to "v"))
+        every { mockCli.downloadSecrets(any(), any()) } answers {
+            callCount++
+            if (callCount == 1) DopplerResult.Failure("transient network error", -1)
+            else DopplerResult.Success(mapOf("K" to "v"))
+        }
         configure()
         val svc = DopplerProjectService(projectFixture.get()) { mockCli }
 
-        runCatching { svc.fetchSecrets() }
+        try {
+            svc.fetchSecrets()
+        } catch (_: DopplerFetchException) {
+            // expected on first call
+        }
         val secondAttempt = svc.fetchSecrets()
 
         assertThat(secondAttempt).containsEntry("K", "v")
