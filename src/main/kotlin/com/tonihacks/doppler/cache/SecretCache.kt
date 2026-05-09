@@ -35,7 +35,17 @@ class SecretCache(private val ttlMs: Long = DEFAULT_TTL_MS) {
         }
     }
 
-    fun put(project: String, config: String, secrets: Map<String, String>) {
+    /**
+     * Stores [secrets] for ([project], [config]). The optional [ttlMs] parameter overrides
+     * the constructor default — used by `DopplerProjectService` so a settings-page TTL
+     * change takes effect on the next CLI fetch without rebuilding the cache.
+     */
+    fun put(
+        project: String,
+        config: String,
+        secrets: Map<String, String>,
+        ttlMs: Long = this.ttlMs,
+    ) {
         store[project to config] = Entry(secrets, System.currentTimeMillis() + ttlMs)
     }
 
