@@ -1,6 +1,8 @@
 package com.tonihacks.doppler.settings
 
 import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
+import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.fileChooser.FileChooserDescriptorFactory
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.ComboBox
@@ -72,6 +74,10 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
     // Components declared before the panel builder so the DSL lambdas can
     // reference them directly.
     private val enabledCheckBox = JBCheckBox(DopplerBundle.message("settings.enabled"))
+
+    companion object {
+        private val LOG = Logger.getInstance(DopplerSettingsPanel::class.java)
+    }
     private val projectCombo = ComboBox<String>()
     private val configCombo = ComboBox<String>()
     private val ttlSpinner = JSpinner(
@@ -165,58 +171,84 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
      * before dispatching to the pool so that background code never touches
      * Swing components.
      */
+    @Suppress("TooGenericExceptionCaught")
     fun loadProjectsAsync() {
         // Snapshot all EDT state before dispatching to the pool.
         val currentCliPath = cliPath
         val currentSelection = selectedProject
         val combo = projectCombo
+        LOG.info("DopplerSettingsPanel: loadProjectsAsync dispatching, cliPath='$currentCliPath'")
         ApplicationManager.getApplication().executeOnPooledThread {
-            val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
-            when (val result = cli.listProjects()) {
-                is DopplerResult.Success -> {
-                    val slugs = result.value.map { it.slug }
-                    // Lambda captures only primitives and the combo reference —
-                    // not `this` — so the FlushQueue does not retain the panel.
-                    ApplicationManager.getApplication().invokeLater {
-                        updateCombo(combo, slugs, preserveSelection = currentSelection)
+            LOG.info("DopplerSettingsPanel: loadProjectsAsync lambda started")
+            try {
+                val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
+                when (val result = cli.listProjects()) {
+                    is DopplerResult.Success -> {
+                        val slugs = result.value.map { it.slug }
+                        LOG.info("DopplerSettingsPanel: listProjects success, ${slugs.size} projects: $slugs")
+                        // Lambda captures only primitives and the combo reference —
+                        // not `this` — so the FlushQueue does not retain the panel.
+                        ApplicationManager.getApplication().invokeLater({
+                            updateCombo(combo, slugs, preserveSelection = currentSelection)
+                            LOG.info("DopplerSettingsPanel: projectCombo updated")
+                        }, ModalityState.any())
                     }
+                    is DopplerResult.Failure -> LOG.warn("DopplerSettingsPanel: listProjects failed: ${result.error}")
                 }
-                is DopplerResult.Failure -> Unit // leave combo empty; user can test connection
+            } catch (e: Exception) {
+                LOG.error("DopplerSettingsPanel: loadProjectsAsync failed", e)
             }
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")
     private fun loadConfigsAsync(projectSlug: String) {
         val currentCliPath = cliPath
         val currentSelection = selectedConfig
         val combo = configCombo
         ApplicationManager.getApplication().executeOnPooledThread {
-            val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
-            when (val result = cli.listConfigs(projectSlug)) {
-                is DopplerResult.Success -> {
-                    val names = result.value.map { it.name }
-                    ApplicationManager.getApplication().invokeLater {
-                        updateCombo(combo, names, preserveSelection = currentSelection)
+            try {
+                val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
+                when (val result = cli.listConfigs(projectSlug)) {
+                    is DopplerResult.Success -> {
+                        val names = result.value.map { it.name }
+                        ApplicationManager.getApplication().invokeLater({
+                            updateCombo(combo, names, preserveSelection = currentSelection)
+                        }, ModalityState.any())
                     }
+                    is DopplerResult.Failure -> Unit
                 }
-                is DopplerResult.Failure -> Unit
+            } catch (e: Exception) {
+                LOG.error("DopplerSettingsPanel: loadConfigsAsync failed", e)
             }
         }
     }
 
     // ── Test connection ────────────────────────────────────────────────────────
 
+    @Suppress("TooGenericExceptionCaught")
     private fun testConnection() {
         statusLabel.text = DopplerBundle.message("settings.test.connection.testing")
         val currentCliPath = cliPath
         val label = statusLabel
         ApplicationManager.getApplication().executeOnPooledThread {
-            val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
-            val versionResult = cli.version()
-            val meResult = cli.me()
-            val text = buildStatusText(versionResult, meResult)
-            ApplicationManager.getApplication().invokeLater {
-                label.text = text
+            LOG.info("DopplerSettingsPanel: testConnection lambda started, cliPath='$currentCliPath'")
+            try {
+                val cli = DopplerCliClient(cliPath = currentCliPath.takeIf { it.isNotBlank() })
+                val versionResult = cli.version()
+                LOG.info("DopplerSettingsPanel: version result=$versionResult")
+                val meResult = cli.me()
+                LOG.info("DopplerSettingsPanel: me result=$meResult")
+                val text = buildStatusText(versionResult, meResult)
+                ApplicationManager.getApplication().invokeLater({
+                    label.text = text
+                }, ModalityState.any())
+            } catch (e: Exception) {
+                LOG.error("DopplerSettingsPanel: testConnection failed", e)
+                val msg = "Error: ${e.javaClass.simpleName}: ${e.message}"
+                ApplicationManager.getApplication().invokeLater({
+                    label.text = msg
+                }, ModalityState.any())
             }
         }
     }
@@ -228,7 +260,7 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
         versionResult is DopplerResult.Success && meResult is DopplerResult.Success ->
             DopplerBundle.message(
                 "settings.test.connection.success",
-                meResult.value.email,
+                meResult.value.email.ifBlank { meResult.value.name },
                 versionResult.value,
             )
         versionResult is DopplerResult.Failure ->
