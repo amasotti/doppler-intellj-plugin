@@ -35,5 +35,18 @@
              future caller accidentally passes a value-bearing string to DopplerNotifier,
              nothing lingers in the user's Event Log. -->
         <notificationGroup id="Doppler" displayType="BALLOON" isLogByDefault="false"/>
+        <!--
+            Settings → Tools → Doppler.
+            nonDefaultProject="true" hides the page from the synthetic default project.
+            parentId="tools" places it under the Tools group.
+            IntelliJ Platform injects the Project into the constructor automatically.
+        -->
+        <projectConfigurable
+            parentId="tools"
+            instance="com.tonihacks.doppler.settings.DopplerSettingsConfigurable"
+            id="com.tonihacks.doppler.settings"
+            bundle="messages.DopplerBundle"
+            key="settings.title"
+            nonDefaultProject="true"/>
     </extensions>
 </idea-plugin>
