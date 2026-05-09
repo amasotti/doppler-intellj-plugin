@@ -34,7 +34,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 25
-          cache: gradle
 
       - name: Lint & Test (Detekt + JUnit 5)
         run: ./gradlew check --no-daemon

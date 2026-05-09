@@ -27,7 +27,6 @@ jobs:
         with:
           distribution: corretto
           java-version: 25
-          cache: gradle
 
       - name: Build plugin
         run: ./gradlew buildPlugin --no-daemon
