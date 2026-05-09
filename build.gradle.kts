@@ -6,6 +6,7 @@ plugins {
     kotlin("jvm") version "2.3.20"
     kotlin("plugin.serialization") version "2.3.20"
     id("org.jetbrains.intellij.platform") version "2.6.0"
+    id("dev.detekt") version("2.0.0-alpha.3")
 }
 
 group = "com.tonihacks"
@@ -24,12 +25,12 @@ dependencies {
         testFramework(TestFrameworkType.Platform)
     }
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.11.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.0.3")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("io.mockk:mockk:1.13.13")
-    testImplementation("org.assertj:assertj-core:3.26.3")
+    testImplementation("io.mockk:mockk:1.14.9")
+    testImplementation("org.assertj:assertj-core:3.27.7")
 }
 
 intellijPlatform {
@@ -58,6 +59,10 @@ kotlin {
 
 tasks.withType<KotlinCompile>().configureEach {
     compilerOptions.jvmTarget.set(JvmTarget.JVM_21)
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.release.set(21)
 }
 
 tasks.test {
