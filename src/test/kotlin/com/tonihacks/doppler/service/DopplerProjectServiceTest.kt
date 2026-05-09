@@ -99,6 +99,26 @@ class DopplerProjectServiceTest {
     }
 
     @Test
+    fun `redactedView entries and values still leak — documented limitation pinned to keep reviewers honest`() {
+        // The wrapper only overrides toString() on the Map itself. `entries`/`values`/`keys`
+        // proxy to the inner map, whose toString() renders KEY=VALUE. This test exists to
+        // PIN that limitation: if a future maintainer "tightens" the wrapper to also redact
+        // these collections, env-injection callers iterating the map will see redacted
+        // sentinels and break. The only correct fix would be a different return type
+        // (e.g. SecretBundle) — that's a Phase 7+ decision, not a sneak fix in cli/service.
+        val mockCli = mockk<DopplerCliClient>()
+        every { mockCli.downloadSecrets("my-service", "dev") } returns
+            DopplerResult.Success(mapOf("API_KEY" to "supersecret-value"))
+        configure()
+        val svc = DopplerProjectService(projectFixture.get()) { mockCli }
+
+        val m = svc.fetchSecrets()
+
+        assertThat(m.entries.toString()).contains("supersecret-value")
+        assertThat(m.values.toString()).contains("supersecret-value")
+    }
+
+    @Test
     fun `cacheTtlSeconds setting is read on each fetch — TTL=0 forces re-fetch`() {
         val mockCli = mockk<DopplerCliClient>()
         every { mockCli.downloadSecrets(any(), any()) } returns DopplerResult.Success(mapOf("K" to "v"))
