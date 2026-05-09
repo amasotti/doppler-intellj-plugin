@@ -48,5 +48,14 @@
             bundle="messages.DopplerBundle"
             key="settings.title"
             nonDefaultProject="true"/>
+
+        <!--
+            Doppler tool window — browse and edit secrets without leaving the IDE.
+            Anchor "right" matches the common placement for project-level tool windows.
+        -->
+        <toolWindow id="Doppler"
+            anchor="right"
+            factoryClass="com.tonihacks.doppler.ui.toolwindow.DopplerToolWindowFactory"
+            icon="/META-INF/pluginIcon.svg"/>
     </extensions>
 </idea-plugin>

@@ -25,4 +25,4 @@ package com.tonihacks.doppler.service
  * TODO (Phase 7/8): add a stderr line redactor in `cli/` that strips anything resembling
  * `KEY=VALUE` shapes before propagation, and tighten this contract.
  */
-class DopplerFetchException(message: String) : RuntimeException(message)
+class DopplerFetchException(override val message: String) : RuntimeException(message)
