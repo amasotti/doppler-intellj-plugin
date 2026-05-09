@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# Cancel in-progress runs for the same branch/PR.
+# When invoked via workflow_call (from release), each call gets a unique group
+# (run_id) so nothing is cancelled — release must not be interrupted.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_call' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'workflow_call' }}
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Pre-install JDK 25 so Foojay toolchain resolver skips the network download.
+      # cache: gradle caches ~/.gradle/caches + ~/.gradle/wrapper.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 25
+          cache: gradle
+
+      - name: Lint & Test (Detekt + JUnit 5)
+        run: ./gradlew check --no-daemon
+
+      - name: Build plugin (unsigned)
+        run: ./gradlew buildPlugin --no-daemon
+
+      # Upload unsigned zip for manual inspection / smoke testing.
+      - name: Upload plugin artifact
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-unsigned
+          path: build/distributions/*.zip
+          retention-days: 7
+
+      # Preserve test evidence on failure.
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-reports
+          path: |
+            build/reports/tests/
+            build/test-results/
+          retention-days: 3
+
+  # Fan-in gate required for branch protection rules.
+  # Uses `always()` so it runs even when build-and-test is skipped/cancelled,
+  # but then explicitly fails if build-and-test did not succeed.
+  ci-success:
+    name: CI — all checks passed
+    needs: [build-and-test]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check required jobs
+        env:
+          BUILD: ${{ needs.build-and-test.result }}
+        run: |
+          if [[ "$BUILD" != "success" ]]; then
+            echo "build-and-test did not succeed (result: $BUILD)"
+            exit 1
+          fi
+          echo "All checks passed"
