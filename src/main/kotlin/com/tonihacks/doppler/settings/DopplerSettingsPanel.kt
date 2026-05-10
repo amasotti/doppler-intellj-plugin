@@ -21,58 +21,19 @@ import javax.swing.JSpinner
 import javax.swing.SpinnerNumberModel
 
 /**
- * Swing panel for **Settings → Tools → Doppler**.
+ * Swing panel for Settings → Tools → Doppler.
  *
- * All UI state is held in the component references ([enabledCheckBox],
- * [projectCombo], etc.). The owning [DopplerSettingsConfigurable] reads and
- * writes through the accessor properties ([isEnabled], [selectedProject],
- * [selectedConfig], [cacheTtlSeconds], [cliPath]).
+ * `project` is a constructor parameter (not `val`) — capturing it as a field, or
+ * inside an `invokeLater` lambda, would keep it alive in the FlushQueue past dialog
+ * close and trip IntelliJ's project-leak detector. All async lambdas capture only
+ * primitive snapshots and direct component references.
  *
- * ## Layer note
- *
- * This class instantiates [DopplerCliClient] directly (bypassing
- * [com.tonihacks.doppler.service.DopplerProjectService]) to populate the
- * project / config combo boxes. The alternative — adding `listProjects` /
- * `listConfigs` to `DopplerProjectService` — would expand Phase 5's scope
- * and create a reverse dependency from `service/` callers into this UI. The
- * `settings/` → `cli/` dependency is documented here as a deliberate exception;
- * `settings/DopplerSettingsState` (the state class) retains zero deps on `cli/`.
- *
- * ## No [Project] field retained after construction
- *
- * [project] is a plain constructor parameter (not `val`) used only in the
- * `init` block to wire up the CLI-path browse listener. All `invokeLater`
- * lambdas that are queued in the EDT `FlushQueue` capture only Swing component
- * references (not `this` or the project). This prevents the project from being
- * held alive in the queue after the settings dialog is closed, which would
- * otherwise trigger IntelliJ's project-leak detector.
- *
- * ## Threading
- *
- * [loadProjectsAsync] and [testConnection] dispatch to a pooled thread and
- * post results back to the EDT via `invokeLater`. All Swing-component state
- * reads are snapshotted on the EDT **before** dispatching to the pool. The
- * `invokeLater` lambdas capture only immutable `String` values and direct
- * combo-box references (not `this`), so the FlushQueue does not retain a path
- * back to the project once the lambda completes.
- *
- * ## Security
- *
- * The "Test connection" result shown in [statusLabel] is either
- * `email + CLI version` on success or the CLI's stderr on failure. The two
- * commands used (`doppler --version` and `doppler me`) do not print secret
- * values in their output — `--version` prints only a version string and `me`
- * prints user metadata. This guarantee rests on the Doppler CLI's documented
- * behaviour, not on code enforcement; see the Phase 7/8 carry-forward TODO in
- * [com.tonihacks.doppler.service.DopplerFetchException] for a planned
- * redactor that would make it code-enforced.
- *
- * No secret value touches any label, text field, or combo box in this panel.
+ * `settings/` → `cli/` is a deliberate exception to the layer rules: combos are
+ * populated directly from the CLI, bypassing `DopplerProjectService`, to avoid
+ * widening that service's contract for this single UI need.
  */
-class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a field
+class DopplerSettingsPanel(project: Project) {
 
-    // Components declared before the panel builder so the DSL lambdas can
-    // reference them directly.
     private val enabledCheckBox = JBCheckBox(DopplerBundle.message("settings.enabled"))
 
     companion object {
@@ -86,23 +47,12 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
     private val cliPathField = TextFieldWithBrowseButton()
     private val statusLabel = JBLabel()
 
-    /**
-     * Guard flag set during [updateCombo] model replacement.
-     *
-     * Replacing `projectCombo.model` fires an `ItemEvent.SELECTED` for the
-     * first item in the new model — we do not want that event to trigger a
-     * `loadConfigsAsync` call for an auto-selected item. The item listener
-     * checks this flag and skips the load while a model swap is in progress.
-     *
-     * Access: EDT only (item listener + [updateCombo] both run on EDT).
-     */
+    // Set during model swap so the item listener ignores the auto-fired SELECTED event.
     private var updatingModel = false
 
-    /** The root [JComponent] to return from [DopplerSettingsConfigurable.createComponent]. */
     val component: JComponent
 
     init {
-        // Wire up the browse listener using project only here; not stored in a field.
         cliPathField.addBrowseFolderListener(
             "Select Doppler CLI binary",
             null,
@@ -110,8 +60,6 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
             FileChooserDescriptorFactory.createSingleFileDescriptor(),
         )
 
-        // Load configs whenever the user changes the project selection.
-        // Skip loads triggered by [updateCombo]'s model replacement.
         projectCombo.addItemListener { e ->
             if (e.stateChange == ItemEvent.SELECTED && !updatingModel) {
                 val slug = e.item as? String ?: return@addItemListener
@@ -121,18 +69,12 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
         component = buildPanel()
     }
 
-    // ── Accessors for DopplerSettingsConfigurable ──────────────────────────────
-
     var isEnabled: Boolean
         get() = enabledCheckBox.isSelected
         set(value) { enabledCheckBox.isSelected = value }
 
-    /**
-     * Selected Doppler project slug; empty string when nothing is selected.
-     *
-     * Setting a value that is not already in the combo's model appends it first
-     * so that a persisted slug is visible even before the async project list loads.
-     */
+    /** Empty when nothing selected. Setter appends the value if absent so a persisted slug
+     *  is visible before the async list arrives. */
     var selectedProject: String
         get() = projectCombo.selectedItem as? String ?: ""
         set(value) {
@@ -141,7 +83,6 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
             projectCombo.selectedItem = value.ifBlank { null }
         }
 
-    /** Selected Doppler config name; empty string when nothing is selected. */
     var selectedConfig: String
         get() = configCombo.selectedItem as? String ?: ""
         set(value) {
@@ -155,25 +96,14 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
             ?: DopplerSettingsState.DEFAULT_CACHE_TTL_SECONDS
         set(value) { ttlSpinner.value = value }
 
-    /** Custom CLI path; empty string means "resolve via PATH". */
+    /** Empty = resolve via PATH. */
     var cliPath: String
         get() = cliPathField.text.trim()
         set(value) { cliPathField.text = value }
 
-    // ── Async loading ──────────────────────────────────────────────────────────
-
-    /**
-     * Fetches the Doppler project list in a background thread and populates
-     * [projectCombo]. Silently no-ops when the CLI is unavailable or not
-     * authenticated — the user can diagnose that via the "Test connection" button.
-     *
-     * Must be called from the EDT. All Swing-state reads are snapshotted here
-     * before dispatching to the pool so that background code never touches
-     * Swing components.
-     */
+    /** EDT entry point. Snapshots state, dispatches to a pool, marshals back via invokeLater. */
     @Suppress("TooGenericExceptionCaught")
     fun loadProjectsAsync() {
-        // Snapshot all EDT state before dispatching to the pool.
         val currentCliPath = cliPath
         val currentSelection = selectedProject
         val combo = projectCombo
@@ -186,8 +116,6 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
                     is DopplerResult.Success -> {
                         val slugs = result.value.map { it.slug }
                         LOG.info("DopplerSettingsPanel: listProjects success, ${slugs.size} projects: $slugs")
-                        // Lambda captures only primitives and the combo reference —
-                        // not `this` — so the FlushQueue does not retain the panel.
                         ApplicationManager.getApplication().invokeLater({
                             updateCombo(combo, slugs, preserveSelection = currentSelection)
                             LOG.info("DopplerSettingsPanel: projectCombo updated")
@@ -223,8 +151,6 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
             }
         }
     }
-
-    // ── Test connection ────────────────────────────────────────────────────────
 
     @Suppress("TooGenericExceptionCaught")
     private fun testConnection() {
@@ -267,13 +193,8 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
             DopplerBundle.message("settings.test.connection.failure", versionResult.error)
         meResult is DopplerResult.Failure ->
             DopplerBundle.message("settings.test.connection.failure", meResult.error)
-        // Sealed class is exhaustive — DopplerResult has only Success and Failure.
-        // The compiler does not know this in a `when` expression without an `else`
-        // because the sealed type argument is covariant. Unreachable in practice.
         else -> DopplerBundle.message("settings.test.connection.failure", "Unknown error")
     }
-
-    // ── Private layout helpers ─────────────────────────────────────────────────
 
     private fun buildPanel(): JComponent = panel {
         row { cell(enabledCheckBox) }
@@ -299,17 +220,9 @@ class DopplerSettingsPanel(project: Project) { // no `val` — not stored as a f
     }
 
     /**
-     * Replaces [combo]'s model with [items], restoring the previous selection
-     * if [preserveSelection] is still present in the new list. If the persisted
-     * selection is absent from the new list (e.g., CLI auth expired or different
-     * workspace), the combo is left with no selection rather than auto-selecting
-     * the first item — which would otherwise trigger a spurious
-     * `loadConfigsAsync` call for the wrong project.
-     *
-     * [updatingModel] is set for the duration of the call so the [projectCombo]
-     * item listener ignores the model-replacement events.
-     *
-     * **Must be called on the EDT.**
+     * Replaces the model and restores the prior selection if still present.
+     * Leaves the combo unselected otherwise — auto-selecting the first item would
+     * fire a spurious `loadConfigsAsync` for the wrong project. EDT only.
      */
     private fun updateCombo(combo: ComboBox<String>, items: List<String>, preserveSelection: String) {
         updatingModel = true
