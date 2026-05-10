@@ -35,9 +35,9 @@ class DopplerNodeRunConfigurationExtension : AbstractNodeRunConfigurationExtensi
     override fun isApplicableFor(profile: AbstractNodeTargetRunProfile): Boolean = true
 
     override fun createLaunchSession(
-        profile: AbstractNodeTargetRunProfile,
-        env: ExecutionEnvironment,
-    ): NodeRunConfigurationLaunchSession = DopplerNodeLaunchSession(profile.project, profile.name)
+        configuration: AbstractNodeTargetRunProfile,
+        environment: ExecutionEnvironment,
+    ): NodeRunConfigurationLaunchSession = DopplerNodeLaunchSession(configuration.project, configuration.name)
 
     /**
      * Per-launch session that injects secrets into [NodeTargetRun] env data right

@@ -31,19 +31,22 @@ dependencies {
         bundledPlugin("com.intellij.gradle")
         bundledPlugin("com.intellij.java")
         bundledPlugin("JavaScript")
-        // Python plugin compatible with IDEA Ultimate 2026.1 (build 261.x). Bump in
-        // lockstep with the IDE base — the Python plugin pins until-build to its own
-        // version, so a newer IDE base needs a newer Python plugin.
-        plugin("Pythonid", "261.22158.340")
+        // Python Community Edition plugin from JetBrains Marketplace (ID 7322). Provides
+        // the `PythonRunConfigurationExtension` base + `AbstractPythonRunConfiguration`
+        // we need.
+        plugin("PythonCore", "261.24374.66")
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.JUnit5)
     }
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2") // pinned to this v for compatibility with intellj tests
+    testImplementation("org.junit.jupiter:junit-jupiter:5.14.4") // matches IntelliJ Platform 2026.1 test framework (TestFixtureExtension uses ExtensionContext.getEnclosingTestClasses, added in 5.12)
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("org.assertj:assertj-core:3.27.7")
+    // junit 3/4 TestCase is required at runtime by com.intellij.tests.JUnit5TestSessionListener
+    // (the IntelliJ Platform 2026.1 test framework's session listener loads it eagerly).
+    testRuntimeOnly("junit:junit:4.13.2")
 }
 
 intellijPlatform {

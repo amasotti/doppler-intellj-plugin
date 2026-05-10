@@ -37,7 +37,7 @@
         Python support. Covers Python script, pytest, unittest, Django, Flask, FastAPI.
         Active in PyCharm CE/Pro and IDEA Ultimate.
     -->
-    <depends optional="true" config-file="doppler-python.xml">PythonCore</depends>
+    <depends optional="true" config-file="doppler-python.xml">com.intellij.modules.python</depends>
 
     <resource-bundle>messages.DopplerBundle</resource-bundle>
 

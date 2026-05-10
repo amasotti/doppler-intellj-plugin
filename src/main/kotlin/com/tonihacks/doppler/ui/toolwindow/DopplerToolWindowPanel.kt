@@ -225,10 +225,6 @@ class DopplerToolWindowPanel(
     /**
      * Replaces the table contents with [secrets], sorted by key.
      *
-     * Must be called on the EDT. [setRows] fires [fireTableDataChanged], which
-     * triggers the [addTableModelListener] — that listener sets `saveButton.isEnabled`
-     * based on `model.hasModifiedRows()`. No direct `saveButton.isEnabled` mutation
-     * here so there is a single source of truth.
      */
     internal fun applyLoadedSecrets(secrets: Map<String, String>) {
         val rows = secrets.entries.sortedBy { it.key }.map { SecretRow(it.key, it.value) }
