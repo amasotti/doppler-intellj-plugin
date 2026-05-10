@@ -10,18 +10,7 @@ import com.tonihacks.doppler.notification.DopplerNotifier
 import com.tonihacks.doppler.service.DopplerProjectService
 import org.jetbrains.plugins.gradle.util.GradleConstants
 
-/**
- * Injects Doppler-managed secrets into Gradle run configurations before process launch.
- *
- * Registered as an optional extension — only active when the Gradle plugin is present
- * (`com.intellij.gradle`). Loaded via `META-INF/doppler-gradle.xml`.
- *
- * **Injection path (spec §5.4):** [patchCommandLine] runs on a background thread (the
- * process-creation path). It delegates to [SecretInjectionRunner] which calls
- * [DopplerProjectService.fetchSecrets] (cache-first), merges with `config.settings.env`
- * (local wins — spec §5.3), and writes the result into [GeneralCommandLine.environment]
- * before Gradle starts.
- */
+/** Gradle injector. Loaded via `doppler-gradle.xml`. Filters out Maven/npm by SYSTEM_ID. */
 class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExtension() {
 
     override fun isApplicableFor(configuration: ExternalSystemRunConfiguration): Boolean =
@@ -42,11 +31,6 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         )
     }
 
-    /**
-     * Testable seam: thin wrapper over [SecretInjectionRunner.run] that captures the
-     * Gradle-specific `applyMerged` step (writing back to [GeneralCommandLine.environment]).
-     * Tests call this directly with a fake [service] and overridden notification callbacks.
-     */
     internal fun injectSecrets(
         project: Project,
         existingEnv: Map<String, String>,
