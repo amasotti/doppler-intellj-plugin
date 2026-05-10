@@ -165,20 +165,30 @@ launches." Each run-configuration family has its own extension point. The plugin
    the developer aware that the local environment is diverging from CI / staging / prod, where Doppler-managed values
    apply.
 
-**v1 ships these adapters:**
+**Currently shipped adapters:**
 
-| Family                              | Extension point                                                                                                     | Coverage                           |
-|-------------------------------------|---------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| Java / Kotlin / Spring Boot / JUnit | `RunConfigurationExtension`                                                                                         | IntelliJ IDEA Ultimate + Community |
-| Gradle                              | `GradleRunConfigurationExtension` (or generic `RunConfigurationExtension` against `ExternalSystemRunConfiguration`) | All JVM IDEs with Gradle support   |
+| Family                                | Extension point(s)                                                                                                                   | Coverage                              |
+|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------|
+| Java / Kotlin / Spring Boot / JUnit   | `com.intellij.runConfigurationExtension` (`RunConfigurationExtension.updateJavaParameters`)                                          | IDEA Ultimate + Community             |
+| Gradle (Tooling-API delegation)       | `org.jetbrains.plugins.gradle.executionHelperExtension` (`GradleExecutionHelperExtension.configureSettings`) — **load-bearing**      | Any IDE with the Gradle plugin        |
+| Gradle (non-Tooling-API fallback)     | `com.intellij.externalSystem.runConfigurationEx` (`ExternalSystemRunConfigurationExtension.patchCommandLine`) — defense-in-depth     | Any IDE with the Gradle plugin        |
+| Node.js / npm / yarn / pnpm / Jest / Vitest | `JavaScript.NodeJS.runConfigurationExtension` (`AbstractNodeRunConfigurationExtension.createLaunchSession` → `addNodeOptionsTo`) | WebStorm, IDEA Ultimate, PyCharm Pro  |
+| Python (script, pytest, unittest, Django, Flask, FastAPI) | `Pythonid.runConfigurationExtension` (`PythonRunConfigurationExtension.patchCommandLine`)                        | PyCharm CE / Pro, IDEA Ultimate + Python plugin |
+
+**Why two Gradle extensions.** The default *Build and run using: Gradle*
+delegation routes execution through the Tooling API. `BuildLauncher` reads
+`GradleExecutionSettings.env` and never invokes a `GeneralCommandLine` for
+the user task — so `patchCommandLine` is registered but never fires for
+typical Gradle runs. `GradleExecutionHelperExtension.configureSettings`
+mutates the same `settings.env` map that the Tooling API forwards, which is
+the load-bearing hook. The legacy `patchCommandLine` extension is retained
+as a fallback for non-Tooling-API external-system launches.
 
 **v2+ adapters (designed-for, not built):**
 
 | Family                      | Extension point                      | IDEs                    |
 |-----------------------------|--------------------------------------|-------------------------|
 | Maven                       | `MavenRunConfigurationExtension`     | IDEA, JVM IDEs          |
-| Node.js / npm / yarn / pnpm | `NodeJsRunConfigurationExtension`    | WebStorm, IDEA Ultimate |
-| Python                      | `PythonRunConfigurationExtension`    | PyCharm, IDEA Ultimate  |
 | PHP (built-in, Symfony)     | `PhpRunConfigurationExtension`       | PhpStorm                |
 | Go                          | `GoRunConfigurationExtensionBase`    | GoLand                  |
 | Rust                        | `CargoCommandConfigurationExtension` | RustRover               |
@@ -425,20 +435,22 @@ These are deliberately deferred. Listed for future-Toni:
 The plugin is v1.0-ready when **all** of the following are true:
 
 - [ ] Runs on IntelliJ IDEA (Ultimate + Community) 2026.1+ without errors
-- [ ] Runs on WebStorm, PhpStorm, PyCharm, GoLand 2026.1+ without errors (even if family-specific injectors aren't
+- [x] Runs on WebStorm, PhpStorm, PyCharm, GoLand 2026.1+ without errors (even if family-specific injectors aren't
   built — the plugin shouldn't crash these IDEs)
-- [ ] Java/Kotlin run configurations inject Doppler secrets
-- [ ] Gradle run configurations inject Doppler secrets
-- [ ] JUnit run configurations inject Doppler secrets (covered by Java family)
-- [ ] Spring Boot run configurations inject Doppler secrets (covered by Java family)
-- [ ] Tool window lists, edits, adds, deletes secrets
-- [ ] Settings page persists project + config selection
+- [x] Java/Kotlin run configurations inject Doppler secrets (when *Build and run using: IntelliJ IDEA*)
+- [x] Gradle run configurations inject Doppler secrets (Tooling-API path, default *Build and run using: Gradle*)
+- [x] JUnit run configurations inject Doppler secrets (covered by Java family or Gradle helper depending on delegation)
+- [x] Spring Boot run configurations inject Doppler secrets (covered by Java family)
+- [x] Node.js / npm / yarn / pnpm / Jest / Vitest run configurations inject Doppler secrets
+- [x] Python (script, pytest, unittest, Django, Flask, FastAPI) run configurations inject Doppler secrets
+- [x] Tool window lists, edits, adds, deletes secrets
+- [x] Settings page persists project + config selection (no flicker on reopen)
 - [ ] Status bar widget shows current selection
-- [ ] All failure modes from §5.5 produce clear, actionable errors
-- [ ] No secret value appears in any IDE log at any log level
-- [ ] CI pipeline builds + signs + publishes on tag push
+- [x] All failure modes from §5.5 produce clear, actionable errors
+- [x] No secret value appears in any IDE log at any log level
+- [x] CI pipeline builds + signs + publishes on tag push
 - [ ] README has install instructions and a 30-second demo GIF
-- [ ] Published to JetBrains Marketplace
+- [x] Published to JetBrains Marketplace
 
 ## 14. Project layout
 
@@ -460,12 +472,13 @@ doppler-jetbrains/
 │   │   │   ├── service/             # DopplerProjectService
 │   │   │   ├── settings/            # SettingsState + Configurable
 │   │   │   ├── injection/
-│   │   │   │   ├── core/            # platform-agnostic merge logic
+│   │   │   │   ├── core/            # SecretMerger + OverrideTracker + SecretInjectionRunner
 │   │   │   │   ├── java/            # Java/Kotlin/JUnit/Spring injector
-│   │   │   │   └── gradle/          # Gradle injector
+│   │   │   │   ├── gradle/          # Gradle injector (helper EP + ExternalSystem fallback)
+│   │   │   │   ├── node/            # Node / npm / yarn / pnpm / Jest / Vitest injector
+│   │   │   │   └── python/          # Python script / pytest / unittest / Django / Flask / FastAPI
 │   │   │   ├── ui/
-│   │   │   │   ├── toolwindow/      # tool window factory + panel
-│   │   │   │   └── statusbar/       # status bar widget
+│   │   │   │   └── toolwindow/      # tool window factory + panel
 │   │   │   └── notification/        # DopplerNotifier
 │   │   └── resources/
 │   │       ├── META-INF/

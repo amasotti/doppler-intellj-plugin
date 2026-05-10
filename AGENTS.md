@@ -29,23 +29,19 @@ never consider the task done until the relevant documentation is updated as well
 
 ### 0.1 Canonical SDK references
 
-These are the URLs to consult before writing IntelliJ-specific code. Always check the live page — the SDK evolves and
-your training data may be stale:
+Check the live page — the SDK evolves and training data goes stale.
 
-| Topic                                             | URL                                                                                      |
-|---------------------------------------------------|------------------------------------------------------------------------------------------|
-| **Quick Start (entry point)**                     | <https://plugins.jetbrains.com/docs/intellij/plugins-quick-start.html>                   |
-| Developing a Plugin                               | <https://plugins.jetbrains.com/docs/intellij/developing-plugins.html>                    |
-| Plugin Structure                                  | <https://plugins.jetbrains.com/docs/intellij/plugin-structure.html>                      |
-| `plugin.xml` reference                            | <https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html>             |
-| Implementing in Kotlin                            | <https://plugins.jetbrains.com/docs/intellij/using-kotlin.html>                          |
-| **Run Configurations** (architecturally critical) | <https://plugins.jetbrains.com/docs/intellij/run-configurations.html>                    |
-| Run Configurations Tutorial                       | <https://plugins.jetbrains.com/docs/intellij/run-configurations-tutorial.html>           |
-| **IntelliJ Platform Gradle Plugin (2.x)**         | <https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html> |
-| IntelliJ Platform Plugin Template                 | <https://github.com/JetBrains/intellij-platform-plugin-template>                         |
-| Plugin Signing                                    | <https://plugins.jetbrains.com/docs/intellij/plugin-signing.html>                        |
-| FAQ                                               | <https://plugins.jetbrains.com/docs/intellij/faq.html>                                   |
-| Doppler CLI reference                             | <https://docs.doppler.com/reference/cli>                                                 |
+| Topic                                                 | URL                                                                                      |
+|-------------------------------------------------------|------------------------------------------------------------------------------------------|
+| `plugin.xml` reference                                | <https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html>             |
+| **Run Configurations** (architecturally critical)     | <https://plugins.jetbrains.com/docs/intellij/run-configurations.html>                    |
+| **IntelliJ Platform Gradle Plugin (2.x)**             | <https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html> |
+| Extension Point list                                  | <https://plugins.jetbrains.com/docs/intellij/extension-point-list.html>                  |
+| Doppler CLI reference                                 | <https://docs.doppler.com/reference/cli>                                                 |
+| IntelliJ Community source (verify EP names / classes) | <https://github.com/JetBrains/intellij-community>                                        |
+
+For broader topics (signing, plugin structure, Kotlin usage, FAQ, plugin template) start at
+<https://plugins.jetbrains.com/docs/intellij/welcome.html>.
 
 ### 0.2 Specific facts the SDK docs already settled (don't re-derive)
 
@@ -54,6 +50,15 @@ your training data may be stale:
 - **Minimum Gradle 9.1, minimum JDK 21** for the 2.x Gradle plugin. This project is using gradle 9.2 and JDK 25, so we're good.
 - **There is no single platform-wide "modify any run configuration" extension point.** Each family has its own subclass
   of `RunConfigurationExtensionBase`. Do not invent a generic hook.
+- **`patchCommandLine` is *not* the universal Gradle env-injection hook.** The default *Build and run using: Gradle*
+  delegation goes through the Tooling API, which reads env from `GradleExecutionSettings.env`. The load-bearing hook
+  is `GradleExecutionHelperExtension.configureSettings` (EP `org.jetbrains.plugins.gradle.executionHelperExtension`).
+  **Registered ≠ invoked** — before adding a new family adapter, instrument with `thisLogger().info(...)` and confirm
+  it fires in `idea.log` for the runtime path you care about.
+- **Pin marketplace plugin deps to a build whose `since` matches the IDE GA you target.** `intellijIdeaUltimate("2026.1")`
+  resolves to a specific sub-build (e.g. `IU-261.22158.277`); a marketplace plugin pinned to a *later* 261.x sub-build
+  fails to load (SEVERE in `idea.log`, balloon in the IDE). Use
+  `https://plugins.jetbrains.com/api/plugins/<id>/updates` to find a compatible build.
 - **Don't set `until-build`** in `plugin.xml` unless there's a documented reason. Default = open-ended compatibility.
 - **Use the Plugin Template** as the project bootstrap. Don't hand-roll CI workflows when the template ships them.
 
@@ -86,39 +91,27 @@ your training data may be stale:
 
 ### 1.4 Plan before you code (for non-trivial work)
 
-For anything beyond a few-line fix, write a brief plan first as a chat message:
-
-```
-Plan:
-1. Add SecretCache class with TTL-based eviction
-2. Wire cache into DopplerProjectService.fetchSecrets()
-3. Add unit tests for cache hit, miss, expiry
-4. Wire manual invalidation to the refresh button
-```
-
-Wait for confirmation before executing. The plan is the cheapest place to catch a wrong direction.
+For anything beyond a few-line fix, post a short numbered plan in chat and wait for
+confirmation before executing. The plan is the cheapest place to catch a wrong direction.
 
 ### 1.5 Working process: superpowers skills + adversarial review
 
-This codebase rewards discipline over speed. Default to using the available process tooling rather than improvising.
+Use the process tooling. If unsure whether a skill applies — invoke it (1% rule).
 
-1. **Always invoke `superpowers:using-superpowers` at session start.** It's the gateway to the other process skills. If unsure whether a skill applies — invoke it. The 1% rule.
-
-2. **Reach for the matching superpower before each phase, not after:**
-    - Designing / open-ended scope → `superpowers:brainstorming`
-    - Writing code → `superpowers:test-driven-development`
-    - Stuck / mysterious bug → `superpowers:systematic-debugging`
-    - Multi-step task → `superpowers:writing-plans` then `superpowers:executing-plans`
-    - About to declare done → `superpowers:verification-before-completion`
-
-3. **Adversarial review is mandatory before marking a phase or PR complete.** Dispatch two subagents in parallel:
-    - **Code review** — `feature-dev:code-reviewer` agent or `code-review:code-review` skill. Brief explicitly in **adversary mode**: *"Find every flaw. No benefit of the doubt. Attack KISS / YAGNI violations, premature abstractions, leaking responsibilities, scope creep, hidden complexity. Prove this is wrong, not that it's right."*
-    - **Security review** — `security-review` skill. Brief explicitly in **adversary mode**: *"Assume malicious input. Find every way a secret could leak via logs, exception messages, process args, persisted state, cache, telemetry, or stack traces. Cross-check spec §11 line by line."*
-    - Adversary mode is **not balance**. Reviewer subagents default to charity; this codebase needs the opposite. The point is to surface flaws the author missed.
-
-4. **Use subagents for parallelism**, not just review. When several independent reads / open-ended researches would otherwise bloat context, dispatch them concurrently via the `Agent` tool (`Explore` for known targets, `general-purpose` for open-ended questions).
-
-5. **Don't skip review to "save time".** A 60-second adversarial review on a 200-line diff catches what a 30-minute self-review misses. Authors have blind spots — the review skills exist precisely because of that.
+- **Per phase:** brainstorming for open-ended design, `test-driven-development` while coding,
+  `systematic-debugging` for mysterious bugs, `writing-plans` + `executing-plans` for multi-step
+  work, `verification-before-completion` before claiming done.
+- **Adversarial review is mandatory before declaring a phase or PR complete.** Dispatch two
+  subagents in parallel and brief them in **adversary mode** ("find every flaw, no benefit of
+  the doubt"):
+    - **Code review** — `feature-dev:code-reviewer` or `code-review:code-review`. Attack KISS /
+      YAGNI violations, premature abstractions, scope creep, hidden complexity.
+    - **Security review** — `security-review`. Assume malicious input; find every secret-leak
+      path (logs, exception messages, process args, persisted state, cache, stack traces).
+      Cross-check spec §11 line by line.
+- **Use subagents for parallelism**, not just review (`Explore` for known targets,
+  `general-purpose` for open-ended questions).
+- A 60-second adversarial review on a 200-line diff catches what a 30-minute self-review misses.
 
 ---
 
@@ -158,9 +151,16 @@ If you find yourself wanting to violate a layer, the design is wrong. Stop and d
 ### 2.3 Run-config injection: core service stays family-free
 
 - `DopplerProjectService.fetchSecrets()` returns `Map<String, String>`. That's the whole contract.
-- Anything Java-specific (`JavaParameters`, `JavaRunConfigurationBase`) lives in `injection/java/`.
-- Anything Gradle-specific lives in `injection/gradle/`.
-- A new family adapter is a new package, period. It does not touch the core.
+- Family-specific types stay in their own package:
+    - `JavaParameters`, `JavaRunConfigurationBase` → `injection/java/`
+    - `ExternalSystemRunConfiguration`, `GradleExecutionSettings`, `GradleExecutionContext` → `injection/gradle/`
+    - `NodeTargetRun`, `AbstractNodeTargetRunProfile` → `injection/node/`
+    - `AbstractPythonRunConfiguration` → `injection/python/`
+- The shared pipeline (disposed-check → fetch → merge → apply → shadow-warn) lives in
+  `injection/core/SecretInjectionRunner`. Each family-specific extension supplies its own
+  `applyMerged: (Map<String, String>) -> Unit` callback.
+- A new family adapter is a new package + a new optional `<depends config-file="...">` in `plugin.xml`, period.
+  It does not touch the core service or `SecretInjectionRunner`.
 
 ### 2.4 Secrets are never persisted
 
@@ -188,7 +188,8 @@ If you can't answer "no" with certainty, the change is not ready.
 
 ### 3.2 Style
 
-- Follow IntelliJ Platform's Kotlin code style (built-in formatter; run `./gradlew ktlintFormat` if configured).
+- Follow IntelliJ Platform's Kotlin code style (built-in formatter). Static analysis runs via
+  `./gradlew detekt` (config in `config/detekt/detekt.yml`). No ktlint.
 - One top-level public class per file. Helpers and private classes can share a file when tightly coupled.
 
 ### 3.3 Naming
@@ -205,7 +206,16 @@ If you can't answer "no" with certainty, the change is not ready.
 - Internal helpers can use nullable returns when the absence is meaningful.
 - Never use `!!`. Use `requireNotNull` with an actionable message, or restructure.
 - Don't catch `Throwable` or `Exception` broadly. Catch specifically.
-- **Don't throw across module boundaries — except at the platform-mandated boundary.** The IntelliJ run-config extension contract (`updateJavaParameters`, Gradle `GradleRunConfigurationExtension.attachExtensionsToProcess`, etc.) aborts a launch by *throwing* a `RuntimeException` (typically `ExecutionException`) — there is no `Result` return path. We honour this with **exactly one throw-site**: `DopplerProjectService.fetchSecrets()`, throwing **exactly one exception class**: `DopplerFetchException`. Injectors call `fetchSecrets()`, catch `DopplerFetchException`, call `DopplerNotifier.notifyError(project, e.message)`, and **rethrow `e` directly — never wrap in `ExecutionException` or any other carrier**. Wrapping smuggles the message into a `cause` chain that leaks via `e.toString()` / `e.stackTraceToString()` in third-party run-listeners and the IDE's Run console. The platform accepts any `RuntimeException` as a launch-abort signal, so a bare rethrow is sufficient. The exception's `message` is the CLI's stderr verbatim — see the `DopplerFetchException` class doc for the (deliberately honest, not over-promising) contract. Everything *internal* to the service layer (CLI calls, cache, settings) returns `DopplerResult` / `Result`; the exception only crosses the `service/` → `injection/` boundary because the platform demands it.
+- **Don't throw across module boundaries — except at the platform-mandated boundary.** Internally, fallible
+  operations return `DopplerResult` / `Result`. The exception that crosses `service/` → `injection/` is mandated
+  by IntelliJ: run-config hooks (`updateJavaParameters`, `patchCommandLine`, `addNodeOptionsTo`,
+  `configureSettings`, …) abort a launch by *throwing* a `RuntimeException` — there is no `Result` return path.
+    - **Exactly one throw-site:** `DopplerProjectService.fetchSecrets()`.
+    - **Exactly one exception class:** `DopplerFetchException` (carries CLI stderr verbatim as `message`).
+    - **Injectors rethrow bare** — never wrap in `ExecutionException` or any carrier. Wrapping smuggles the
+      message into a `cause` chain that leaks via `e.toString()` / `e.stackTraceToString()` in third-party
+      run-listeners and the IDE's Run console. The platform accepts any `RuntimeException` as a launch-abort
+      signal, so a bare rethrow is sufficient.
 
 ### 3.5 Threading
 
@@ -310,6 +320,7 @@ If any answer is "I don't know," the PR is not ready.
   extension point names, base class hierarchies, and `plugin.xml` element names — **stop and verify against the SDK
   docs (§0.1) or the IntelliJ Community source on GitHub**. Hallucinated APIs cost more time than asking. A wrong
   extension point name in `plugin.xml` produces obscure runtime failures.
-- **Using deprecated APIs.** `ServiceManager.getService()`, `org.jetbrains.intellij` Gradle plugin (1.x), `intellij {}`
-  extension block — all deprecated. Check the SDK docs before using anything that "feels like" the right API.
+- **Trusting "registered" as "invoked".** A platform extension point loading without errors does not mean its
+  methods get called for the runtime path you care about (see §0.2 on `patchCommandLine` vs Gradle Tooling API).
+  When in doubt, instrument with `thisLogger().info(...)` and verify in `idea.log`.
 

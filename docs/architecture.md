@@ -219,13 +219,38 @@ for non-JVM configurations even when the same family extension point fires.
 
 ### 5.3 Gradle family
 
-The Gradle integration uses `ExternalSystemRunConfigurationExtension.patchCommandLine`
-instead of `updateJavaParameters` because the launched process is Gradle's own daemon
-launcher, not a direct JVM. The injector writes into `GeneralCommandLine.environment`
-before Gradle starts.
+Gradle integration uses **two** extensions in tandem:
 
-`isApplicableFor` filters by `GradleConstants.SYSTEM_ID` so Maven, npm, and other
-external-system configurations that happen to share the extension point are ignored.
+1. **`DopplerGradleExecutionHelperExtension`** — the load-bearing hook. Implements
+   `GradleExecutionHelperExtension.configureSettings(GradleExecutionSettings, GradleExecutionContext)`
+   and writes Doppler keys into `settings.env` via `withEnvironmentVariables(merged)`.
+   IntelliJ's `GradleExecutionHelper.setupEnvironment` reads `settings.getEnv()` and
+   forwards it to `BuildLauncher.setEnvironmentVariables(...)` over the Tooling-API
+   protocol — that is the only path that reaches user tasks (test JVMs, application
+   `main`, custom tasks) under the default *Build and run using: Gradle* delegation.
+
+2. **`DopplerGradleRunConfigurationExtension`** — fallback, kept for
+   non-Tooling-API external-system launches. Implements
+   `ExternalSystemRunConfigurationExtension.patchCommandLine` and writes into
+   `GeneralCommandLine.environment`. Filtered by `GradleConstants.SYSTEM_ID` so Maven
+   and other external-system configs are skipped. In practice the default Gradle
+   delegation never invokes `patchCommandLine` (Gradle launches via the Tooling API,
+   not a direct `GeneralCommandLine`), so this extension is silent for typical use —
+   it is retained as defense-in-depth for users who configure non-Tooling-API
+   execution paths.
+
+> **Why two?** During development we observed `patchCommandLine` was registered
+> but never actually fired for default Gradle runs in 2026.1. The platform routes
+> Gradle through the Tooling API, which reads `GradleExecutionSettings.env` and
+> ignores any `GeneralCommandLine` mutations. The `executionHelperExtension` EP
+> exists precisely for this case.
+
+**Run-config name in the helper extension.** `GradleExecutionContext` does not
+expose the originating run configuration's name — only `taskId`, `projectPath`,
+and `settings`. We use `"${projectPath}:${settings.tasks.joinToString(" ")}"` as
+the dedup key for `OverrideTracker` so the shadow warning fires once per
+*logical* invocation rather than per *launch* (which would re-fire on every
+re-run because `taskId` is unique per launch).
 
 ### 5.4 Conflict policy
 
