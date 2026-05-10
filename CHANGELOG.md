@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
+## [0.2.0] - 2026-05-10
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/1543b9b3346bd9cb7e46fd165888251a8a1b176b..3dc22cd1fe1066d7f1d2721bdd8554db96815531)
+### 🚀 Features
+
+
+- Add support for Node.js and Python run configurations with secret injection ([a308bdf](https://github.com/amasotti/doppler-intellj-plugin/commit/a308bdfffedf35dd8dad081dcf0a18e382b95bca))
+
+### 🐛 Bug Fixes
+
+
+- Update Python plugin dependency and adjust test framework versions for IntelliJ 2026.1 compatibility ([0292239](https://github.com/amasotti/doppler-intellj-plugin/commit/0292239d983b784d5033cc52265582df942924f2))
+
+- Prevent injection when project is disposed ([80a4558](https://github.com/amasotti/doppler-intellj-plugin/commit/80a45586ffddc4de2153dad0f024bfbf9c1f2f07))
+
+### ⚙️ Miscellaneous Tasks
+
+
+- Update versioning strategy and enhance CI configuration ([3dc22cd](https://github.com/amasotti/doppler-intellj-plugin/commit/3dc22cd1fe1066d7f1d2721bdd8554db96815531))
+
 ## [0.1.2] - 2026-05-10
 
 [Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/10b1fa789efdee6cbc3a684f85acdb2d4f88d093..1543b9b3346bd9cb7e46fd165888251a8a1b176b)
