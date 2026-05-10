@@ -4,13 +4,27 @@
         so the plugin loads cleanly in PyCharm, PhpStorm, WebStorm, and other IDEs that
         ship without Gradle support.
 
-        EP: com.intellij.externalSystem.runConfigurationEx
-        Impl: ExternalSystemRunConfigurationExtension
-        Guarded at runtime by isApplicableFor (GradleConstants.SYSTEM_ID check) so Maven,
-        npm, and other ExternalSystem run configs are not affected.
+        Two extension points are registered:
+
+        1. `com.intellij.externalSystem.runConfigurationEx` →
+           DopplerGradleRunConfigurationExtension.patchCommandLine
+           Fires (in theory) for ExternalSystemRunConfiguration launches that build a
+           GeneralCommandLine. Filtered to Gradle SYSTEM_ID. In practice the default
+           "Run with Gradle (delegation)" path goes through the Tooling API and never
+           calls patchCommandLine — kept for non-delegation / future paths.
+
+        2. `org.jetbrains.plugins.gradle.executionHelperExtension` →
+           DopplerGradleExecutionHelperExtension.configureSettings
+           Fires for every Gradle invocation including the Tooling-API path used by
+           the default IDEA Gradle delegation. This is the load-bearing hook for env
+           injection on Gradle test/run configs.
     -->
     <extensions defaultExtensionNs="com.intellij">
         <externalSystem.runConfigurationEx
             implementation="com.tonihacks.doppler.injection.gradle.DopplerGradleRunConfigurationExtension"/>
+    </extensions>
+    <extensions defaultExtensionNs="org.jetbrains.plugins.gradle">
+        <executionHelperExtension
+            implementation="com.tonihacks.doppler.injection.gradle.DopplerGradleExecutionHelperExtension"/>
     </extensions>
 </idea-plugin>
