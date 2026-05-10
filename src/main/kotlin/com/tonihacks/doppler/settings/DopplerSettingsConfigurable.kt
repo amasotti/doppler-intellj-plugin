@@ -15,7 +15,11 @@ class DopplerSettingsConfigurable(private val project: Project) : Configurable {
     override fun createComponent(): JComponent {
         val p = DopplerSettingsPanel(project)
         panel = p
-        p.loadProjectsAsync()
+        // Don't dispatch loadProjectsAsync here — the platform calls reset() immediately
+        // after createComponent(), and reset() already dispatches it. A second dispatch
+        // here races with the one from reset(): the createComponent dispatch snapshots
+        // an empty combo selection, and if its result lands last it clobbers the
+        // selection that reset() set from the persisted state.
         return p.component
     }
 
