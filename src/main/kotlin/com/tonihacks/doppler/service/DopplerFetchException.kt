@@ -1,9 +1,4 @@
 package com.tonihacks.doppler.service
 
-/**
- * Thrown by [DopplerProjectService.fetchSecrets] when the underlying CLI call fails.
- *
- * **Message contract:** The message is the Doppler CLI's `stderr.trim()` propagated verbatim from
- * `DopplerCliClient`.
- */
+/** Thrown by [DopplerProjectService.fetchSecrets] when the CLI fails. Message is CLI stderr verbatim. */
 class DopplerFetchException(override val message: String) : RuntimeException(message)

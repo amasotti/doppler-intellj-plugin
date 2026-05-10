@@ -33,11 +33,6 @@ class DopplerCliClient(
                     )
                 )
             } catch (_: IllegalArgumentException) {
-                // Drop `e.message` — the parser error is opaque to the user (they can't fix
-                // malformed CLI JSON) and a future kotlinx-serialization version that
-                // includes a "context window" snippet in IllegalArgumentException.message
-                // would leak secret bytes. See DopplerFetchException KDoc for the full
-                // Phase 7/8 redactor TODO.
                 DopplerResult.Failure("Failed to parse me JSON")
             }
         }
@@ -88,6 +83,7 @@ class DopplerCliClient(
                 "--config", config,
                 "--silent",
             ),
+            // Value via stdin, never argv — keeps it out of `ps` / process accounting.
             stdin = value,
         ).map { }
 
@@ -122,17 +118,11 @@ class DopplerCliClient(
         }
     }
 
-    // Boundary translator. Process I/O legitimately throws IOException, InterruptedException,
-    // ExecutionException, TimeoutException and CancellationException — Kotlin has no multi-catch
-    // and the contract here is "never throw across the cli/ boundary". Any failure ⇒ Result.Failure.
-    //
-    // Threading note: stdout/stderr are pumped on a per-call dedicated executor (NOT
-    // ForkJoinPool.commonPool). This guarantees the pump threads die deterministically before
-    // `runProcess` returns — `commonPool` workers are recycled and stay alive for ~60s after a
-    // task completes, which IntelliJ's `ThreadLeakTracker` flags as a leak when this test class
-    // shares a JVM with any `@TestApplication` test.
     @Suppress("TooGenericExceptionCaught")
     private fun runProcess(process: Process, stdin: String?): DopplerResult<String> {
+        // Per-call executor (not ForkJoinPool.commonPool): pump threads must die
+        // deterministically before return — commonPool keeps workers alive ~60s and
+        // trips IntelliJ's ThreadLeakTracker.
         val streamPool = Executors.newFixedThreadPool(STREAM_POOL_SIZE) { r ->
             Thread(r, "doppler-cli-stream-pump").apply { isDaemon = true }
         }
@@ -165,16 +155,10 @@ class DopplerCliClient(
             killProcessTree(process)
             DopplerResult.Failure(e.message ?: "Doppler process error")
         } finally {
-            // Close the parent's read ends so any pump still blocked in `read()` exits with
-            // IOException — `killProcessTree` SIGKILLs the entire process tree, but the OS
-            // pipe-close is racy. Belt + suspenders, then shutdownNow + awaitTermination
-            // joins the threads.
+            // Close read pipes so any pump still blocked in read() exits with IOException.
             runCatching { process.inputStream.close() }
             runCatching { process.errorStream.close() }
             streamPool.shutdownNow()
-            // `false` means a pump is wedged in uninterruptible native `read()` — there is no
-            // portable JVM remedy. Log the case so wedged invocations are visible in idea.log
-            // (JUL is bridged into the platform logger). Tests catch this via ThreadLeakTracker.
             val drained = streamPool.awaitTermination(STREAM_DRAIN_TIMEOUT_MS, TimeUnit.MILLISECONDS)
             if (!drained) {
                 LOG.warning("doppler-cli stream pump did not terminate within ${STREAM_DRAIN_TIMEOUT_MS}ms")
@@ -193,27 +177,9 @@ class DopplerCliClient(
     }
 }
 
-// Kills the process AND all of its descendants. `destroyForcibly()` only SIGKILLs the
-// immediate child; if our shell wrapper forked another process (e.g. `sh -c "sleep 30"`
-// → sh forks sleep), SIGKILL on sh leaves sleep orphaned **and still holding the read end
-// of our stdout/stderr pipes**. The pump thread then blocks in `read()` for the full
-// child-process lifetime — past `awaitTermination` — and `ThreadLeakTracker` flags it on
-// test teardown.
-//
-// Snapshot descendants BEFORE killing the parent: once the parent dies, descendants are
-// reparented to init/launchd and `process.descendants()` no longer returns them.
-//
-// Residual races this does NOT close (acceptable for the doppler binary, which is a single
-// compiled Go binary that does not fork after startup):
-//   - A descendant that forks a *grandchild* between `descendants().toList()` and our
-//     `forEach { destroyForcibly }` is invisible to the snapshot and leaks. No portable
-//     JDK fix — Linux's `PR_SET_CHILD_SUBREAPER` is unsupported on macOS/Windows.
-//   - The pipe-close + `awaitTermination` in the caller's `finally` is the secondary
-//     defense if a leaked grandchild keeps the pipe open.
-//
-// PID reuse is NOT a concern: `ProcessHandle.destroyForcibly()` dispatches via the JDK
-// handle, which is stable across PID reuse — we cannot accidentally kill an unrelated
-// process whose PID happens to match a dead descendant.
+// Snapshot descendants before destroying parent: once parent dies, descendants are
+// reparented to init/launchd and `process.descendants()` no longer returns them, leaving
+// orphaned grandchildren holding our stdout/stderr pipes.
 private fun killProcessTree(process: Process) {
     val descendants = process.descendants().toList()
     process.destroyForcibly()
@@ -231,9 +197,7 @@ private fun parseSecretsMap(json: String): DopplerResult<Map<String, String>> =
             .toMap()
         DopplerResult.Success(map)
     } catch (_: IllegalArgumentException) {
-        // See `me()` for the rationale on dropping `e.message`. Same risk: this parser sees
-        // the raw secrets JSON, so a future parser-message-with-content-snippet would
-        // leak directly.
+        // Drop parser message — could include a content snippet of the secrets JSON.
         DopplerResult.Failure("Failed to parse secrets JSON")
     }
 
