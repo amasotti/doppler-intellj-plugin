@@ -95,9 +95,11 @@ src/main/kotlin/com/tonihacks/doppler/
 ├── service/                      # DopplerProjectService + DopplerFetchException
 ├── settings/                     # PersistentStateComponent + Configurable + Swing panel
 ├── injection/
-│   ├── core/                     # SecretMerger + OverrideTracker (platform-agnostic)
+│   ├── core/                     # SecretMerger + OverrideTracker + SecretInjectionRunner (platform-agnostic)
 │   ├── java/                     # JVM family adapter
-│   └── gradle/                   # Gradle adapter
+│   ├── gradle/                   # Gradle adapter (two extensions: ExternalSystem + Tooling-API helper)
+│   ├── node/                     # Node / npm / yarn / pnpm / Jest / Vitest adapter
+│   └── python/                   # Python script / pytest / unittest / Django / Flask / FastAPI adapter
 ├── ui/
 │   └── toolwindow/               # tool window factory + Swing panel + actions
 └── notification/                 # DopplerNotifier — single notification funnel
@@ -109,7 +111,7 @@ Layer dependency rules — enforced by code review, not a tool:
 flowchart TB
     UI["ui/"]
     Settings["settings/"]
-    Injection["injection/java + injection/gradle"]
+    Injection["injection/java + injection/gradle + injection/node + injection/python"]
     InjectionCore["injection/core"]
     Service["service/"]
     Cli["cli/"]
@@ -144,9 +146,10 @@ Hard rules:
 - `cli/` only depends on IntelliJ's `GeneralCommandLine` and `PathEnvironmentVariableUtil`.
   Nothing else from the platform.
 - `cache/` is pure JVM — it could be moved to a separate Gradle module without changes.
-- `injection/core/` is platform-agnostic; family-specific code lives in `injection/java/`
-  or `injection/gradle/`. The `service/` layer never imports family-specific types
-  (`JavaParameters`, `ExternalSystemRunConfiguration`).
+- `injection/core/` is platform-agnostic; family-specific code lives in `injection/java/`,
+  `injection/gradle/`, `injection/node/`, or `injection/python/`. The `service/` layer
+  never imports family-specific types (`JavaParameters`, `ExternalSystemRunConfiguration`,
+  `NodeTargetRun`, `AbstractPythonRunConfiguration`).
 
 ---
 
@@ -164,8 +167,12 @@ Hard rules:
 | `DopplerSettingsConfigurable` + `DopplerSettingsPanel`           | `settings/`      | The Settings → Tools → Doppler page. Async project / config dropdowns. Test-connection button. No project field retained after construction (avoids project-leak detector).      | many (Swing + DSL builder) |
 | `SecretMerger`                                                   | `injection/core/`| Pure merge of `(existingEnv, doppler)` → `MergeResult(merged, shadowedKeys)`. Local wins on collision. Returns a `redactedView` of `merged`.                                     | none |
 | `OverrideTracker`                                                | `injection/core/`| `@Service(PROJECT)`. Atomic `markReportedIfNew(configName)` so the shadow warning fires once per session per config.                                                              | `Service`, `Project` |
-| `DopplerJavaRunConfigurationExtension`                           | `injection/java/`| Subclass of `RunConfigurationExtension`. `updateJavaParameters` → `injectSecrets`.                                                                                                | Java module of the platform |
-| `DopplerGradleRunConfigurationExtension`                         | `injection/gradle/`| Subclass of `ExternalSystemRunConfigurationExtension`. `patchCommandLine` → `injectSecrets`. Filters by `GradleConstants.SYSTEM_ID`.                                            | Gradle module of the platform |
+| `SecretInjectionRunner`                                          | `injection/core/`| Family-agnostic pipeline (disposed-check → fetch → merge → apply → shadow-warn). Each family-specific extension supplies its own `applyMerged` callback (writes env back into `JavaParameters` / `GeneralCommandLine` / `GradleExecutionSettings` / `NodeTargetRun`). | none |
+| `DopplerJavaRunConfigurationExtension`                           | `injection/java/`| Subclass of `RunConfigurationExtension`. `updateJavaParameters` → `injectSecrets`. Fires for *Build and run using: IntelliJ IDEA*.                                                | Java module of the platform |
+| `DopplerGradleRunConfigurationExtension`                         | `injection/gradle/`| Subclass of `ExternalSystemRunConfigurationExtension`. `patchCommandLine` → `injectSecrets`. Filters by `GradleConstants.SYSTEM_ID`. Fallback for non-Tooling-API external-system launches; does **not** fire for the default Gradle delegation. | Gradle module of the platform |
+| `DopplerGradleExecutionHelperExtension`                          | `injection/gradle/`| Implements `GradleExecutionHelperExtension.configureSettings`. Mutates `GradleExecutionSettings.env`, which the Tooling API forwards to `BuildLauncher.setEnvironmentVariables`. This is the load-bearing hook for the default *Build and run using: Gradle* path. | Gradle module of the platform |
+| `DopplerNodeRunConfigurationExtension`                           | `injection/node/`| Subclass of `AbstractNodeRunConfigurationExtension`. `createLaunchSession` returns a session whose `addNodeOptionsTo` rewrites `NodeTargetRun.envData` before spawn (Node's own `patchCommandLine` is `final`). | JavaScript / NodeJS modules |
+| `DopplerPythonRunConfigurationExtension`                         | `injection/python/`| Subclass of `PythonRunConfigurationExtension`. `patchCommandLine` → `injectSecrets`. Loaded only when `com.intellij.modules.python` is present. | Python module |
 | `DopplerToolWindowFactory` + `DopplerToolWindowPanel`            | `ui/toolwindow/` | Right-anchored tool window. JBTable, action toolbar, async load / save / delete / add. Reveal-toggle, copy-value, edit-in-place.                                                  | many |
 | `SecretsTableModel` + `SecretRow`                                | `ui/toolwindow/` | `AbstractTableModel`, masking placeholder, redacted `toString` on the row data class.                                                                                              | Swing + bundle |
 | `DopplerNotifier`                                                | `notification/`  | The **only** way to surface a balloon. `notifyError / notifyWarning / notifyInfo`. Uses notification group `Doppler` registered with `isLogByDefault="false"`.                  | `NotificationGroupManager` |
@@ -182,19 +189,24 @@ without touching the core service.
 
 ### 5.1 Optional plugin dependencies
 
-`plugin.xml` declares two optional fragments. Each fragment is loaded only when its
+`plugin.xml` declares four optional fragments. Each fragment is loaded only when its
 host plugin is present, so the plugin loads cleanly in IDEs that ship without one
-(e.g. PyCharm Community has no Java module).
+(e.g. PyCharm Community has no Java module; WebStorm has no Python).
 
 ```xml
 <depends optional="true" config-file="doppler-gradle.xml">com.intellij.gradle</depends>
 <depends optional="true" config-file="doppler-java.xml">com.intellij.java</depends>
+<depends optional="true" config-file="doppler-node.xml">JavaScript</depends>
+<depends optional="true" config-file="doppler-python.xml">com.intellij.modules.python</depends>
 ```
 
-`META-INF/doppler-java.xml` registers the JVM extension under
-`com.intellij.runConfigurationExtension`.
-`META-INF/doppler-gradle.xml` registers the Gradle extension under
-`com.intellij.externalSystem.runConfigurationEx`.
+| Fragment              | Extension point                                              | Implementation                                  |
+|-----------------------|--------------------------------------------------------------|-------------------------------------------------|
+| `doppler-java.xml`    | `com.intellij.runConfigurationExtension`                     | `DopplerJavaRunConfigurationExtension`          |
+| `doppler-gradle.xml`  | `com.intellij.externalSystem.runConfigurationEx` (fallback)  | `DopplerGradleRunConfigurationExtension`        |
+| `doppler-gradle.xml`  | `org.jetbrains.plugins.gradle.executionHelperExtension`      | `DopplerGradleExecutionHelperExtension`         |
+| `doppler-node.xml`    | `JavaScript.NodeJS.runConfigurationExtension`                | `DopplerNodeRunConfigurationExtension`          |
+| `doppler-python.xml`  | `Pythonid.runConfigurationExtension`                         | `DopplerPythonRunConfigurationExtension`        |
 
 ### 5.2 JVM family
 

@@ -13,6 +13,8 @@ or delete them from a built-in tool window — without leaving the IDE.
 Press **Run**, secrets land in the process environment. No `.env` files. No `doppler run --` wrapping.
 Nothing is ever written to disk by the plugin.
 
+![Tool window](docs/assets/tool_ui_default.png)
+
 ---
 
 ## Highlights
@@ -94,6 +96,8 @@ missing CLI session and will not store credentials of its own.
 6. (Optional) tweak **Cache TTL** (default 60 s).
 7. Apply / OK.
 
+![Settings page](docs/assets/settings_window.png)
+
 > The settings live in `.idea/doppler.xml`. They contain only project / config slugs
 > and toggles — **no secret values, no token**. Commit the file or `.gitignore` it; either
 > works for the plugin.
@@ -114,9 +118,15 @@ Launch any supported run configuration the way you normally would. The plugin me
 Doppler secrets into the launched process environment before the JVM (or Gradle) starts.
 No special run-config flag is needed.
 
+![Injection at launch](docs/assets/injection.png)
+
 - **JVM family** (Application Java + Kotlin, JUnit, TestNG, Spring Boot) — via
-  `RunConfigurationExtension.updateJavaParameters`.
-- **Gradle** — via `ExternalSystemRunConfigurationExtension.patchCommandLine`.
+  `RunConfigurationExtension.updateJavaParameters`. Active when "Build and run using" is
+  set to *IntelliJ IDEA*.
+- **Gradle** — via `GradleExecutionHelperExtension.configureSettings` (Tooling-API path,
+  i.e. the default *Build and run using: Gradle* delegation). The legacy
+  `ExternalSystemRunConfigurationExtension.patchCommandLine` is kept as a fallback for
+  non-Tooling-API external-system launches.
 - **Node.js / npm / yarn / pnpm / Jest / Vitest** — via
   `AbstractNodeRunConfigurationExtension.createLaunchSession` (Node's `patchCommandLine`
   is `final`; env injection happens in `addNodeOptionsTo` on the launch session).
@@ -142,6 +152,8 @@ the active project / config. Available actions:
 - **Edit** — double-click a *revealed* value cell. Save batches the changes through
   `doppler secrets set` (one call per modified key) and refreshes the table.
 - **Right-click row** — same actions plus *Copy name*.
+
+![Add secret dialog](docs/assets/tool_ui_add.png)
 
 Masked cells are intentionally non-editable: if Swing committed the placeholder string
 as the new value, the original secret would be destroyed.
