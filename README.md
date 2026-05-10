@@ -17,8 +17,12 @@ Nothing is ever written to disk by the plugin.
 
 ## Highlights
 
-- **JVM secret injection** — Application (Java + Kotlin), JUnit, TestNG, Spring Boot Application,
-  and Gradle run configurations get Doppler secrets merged into their environment on launch.
+- **Multi-language secret injection** — Doppler secrets merged into the launch environment for:
+  - **JVM family** (IDEA, IDEA Ultimate) — Application (Java + Kotlin), JUnit, TestNG, Spring Boot Application
+  - **Gradle** (any IDE with the Gradle plugin) — every Gradle run configuration
+  - **Node.js / npm / yarn / pnpm / Jest / Vitest** (WebStorm, IDEA Ultimate, PyCharm Pro)
+  - **Python — script, pytest, unittest, Django, Flask, FastAPI** (PyCharm CE/Pro, IDEA Ultimate with Python plugin)
+  - **Rider — tool window only**, run-config injection not yet supported (track it via [#issues](https://github.com/amasotti/doppler-intellj-plugin/issues) if you need it)
 - **Tool window** — review every secret of the active config in a table; copy, reveal, edit,
   add or delete entries. Values are masked by default and never persisted by the plugin.
 - **Settings page** — pick the Doppler project & config, set the cache TTL,
@@ -113,6 +117,12 @@ No special run-config flag is needed.
 - **JVM family** (Application Java + Kotlin, JUnit, TestNG, Spring Boot) — via
   `RunConfigurationExtension.updateJavaParameters`.
 - **Gradle** — via `ExternalSystemRunConfigurationExtension.patchCommandLine`.
+- **Node.js / npm / yarn / pnpm / Jest / Vitest** — via
+  `AbstractNodeRunConfigurationExtension.createLaunchSession` (Node's `patchCommandLine`
+  is `final`; env injection happens in `addNodeOptionsTo` on the launch session).
+- **Python** (script, pytest, unittest, Django, Flask, FastAPI) — via
+  `PythonRunConfigurationExtension.patchCommandLine`.
+- **Rider (.NET)** — tool window only, no run-config injection in this version.
 
 If a run configuration explicitly sets an env var that Doppler also exports, the local
 value wins. The first time per session that this happens for a given configuration,
@@ -192,8 +202,9 @@ Step-by-step setup lives in [`docs/SIGNING.md`](docs/SIGNING.md).
 - **Project / config dropdowns are empty** — the async load fires when Settings opens.
   Save the CLI path first (*Apply*), then close and reopen the dialog.
 - **Run launches without secrets** — verify *Enable Doppler injection* is on, project /
-  config are not blank, and the relevant family plugin is present (`com.intellij.java`
-  or `com.intellij.gradle`).
+  config are not blank, and the relevant family plugin is present (`com.intellij.java`,
+  `com.intellij.gradle`, `JavaScript`, or `com.intellij.modules.python` depending on
+  the run-config type).
 - **Balloon `Doppler fetch failed: …`** — the CLI returned non-zero. The message body
   is the CLI's stderr verbatim; fix the underlying CLI error and retry.
 - **`doppler` not on PATH (sandbox IDE on macOS)** — use the **Custom CLI path** field.

@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       # Pre-install JDK 21 so Foojay toolchain resolver skips the network download.
       # cache: gradle caches ~/.gradle/caches + ~/.gradle/wrapper.

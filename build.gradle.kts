@@ -11,7 +11,9 @@ plugins {
 }
 
 group = "com.tonihacks"
-version = "0.1.2"
+version = providers.exec {
+    commandLine("bash", "-c", "git describe --tags --abbrev=0 2>/dev/null || echo 'v0.0.0-dev'")
+}.standardOutput.asText.get().trim().removePrefix("v")
 
 repositories {
     mavenCentral()
@@ -31,6 +33,10 @@ dependencies {
         bundledPlugin("com.intellij.gradle")
         bundledPlugin("com.intellij.java")
         bundledPlugin("JavaScript")
+        // NodeJS plugin (bundled in IDEA Ultimate, WebStorm, PyCharm Pro). Not strictly
+        // required for the injector — the extension base lives in JavaScript — but tests
+        // need NodeJsRunConfigurationType to construct concrete Node run configs.
+        bundledPlugin("NodeJS")
         // Python Community Edition plugin from JetBrains Marketplace (ID 7322). Provides
         // the `PythonRunConfigurationExtension` base + `AbstractPythonRunConfiguration`
         // we need.
