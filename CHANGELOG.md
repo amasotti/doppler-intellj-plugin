@@ -2,13 +2,40 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
-## [unreleased]
+## [0.1.2] - 2026-05-10
 
-[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/924f3878fcee37d5372bea91957625d6ee2bc6fa..6948acc0ac793388c5c971573a861bc65466e655)
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/10b1fa789efdee6cbc3a684f85acdb2d4f88d093..1543b9b3346bd9cb7e46fd165888251a8a1b176b)
+### 🚀 Features
+
+
+- Improve error handling and user feedback during secrets fetching ([16ab833](https://github.com/amasotti/doppler-intellj-plugin/commit/16ab8332e6df7aa6f3bcdf8eab778915e5de8656))
+
+- Add tool icon ([d4c84c6](https://github.com/amasotti/doppler-intellj-plugin/commit/d4c84c66e31a42fa4a3d31caead11e195d9c119e))
+
+- Update version to 0.1.2 and add cross-IDE smoke testing configurations ([1543b9b](https://github.com/amasotti/doppler-intellj-plugin/commit/1543b9b3346bd9cb7e46fd165888251a8a1b176b))
+
+### 🚜 Refactor
+
+
+- Use ActionButtons instead of plain Jbuttons ([2d4d570](https://github.com/amasotti/doppler-intellj-plugin/commit/2d4d570ee7b49d8dd07a048ee39e359f037f5c0f))
+
+### 🧪 Testing
+
+
+- Add test for hook buttons ([a4ab235](https://github.com/amasotti/doppler-intellj-plugin/commit/a4ab23511f3ec60f585dd867668fb8ce580e5a23))
+
+## [0.1.1] - 2026-05-09
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/924f3878fcee37d5372bea91957625d6ee2bc6fa..10b1fa789efdee6cbc3a684f85acdb2d4f88d093)
 ### 🚀 Features
 
 
 - Add toolWindow ([6948acc](https://github.com/amasotti/doppler-intellj-plugin/commit/6948acc0ac793388c5c971573a861bc65466e655))
+
+### 🐛 Bug Fixes
+
+
+- Add TestOnly constructor to DopplerProjectService for better testability ([2753667](https://github.com/amasotti/doppler-intellj-plugin/commit/275366776d2a0bd19d040fc884770353607c56bb))
 
 ## [0.1.0] - 2026-05-09
 
