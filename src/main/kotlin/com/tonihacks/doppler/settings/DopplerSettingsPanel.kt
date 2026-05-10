@@ -54,10 +54,8 @@ class DopplerSettingsPanel(project: Project) {
 
     init {
         cliPathField.addBrowseFolderListener(
-            "Select Doppler CLI binary",
-            null,
             project,
-            FileChooserDescriptorFactory.createSingleFileDescriptor(),
+            FileChooserDescriptorFactory.singleFile().withTitle("Select Doppler CLI binary"),
         )
 
         projectCombo.addItemListener { e ->
