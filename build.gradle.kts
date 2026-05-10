@@ -22,9 +22,19 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        intellijIdeaCommunity("2024.2")
+        // IDEA Ultimate base: bundles Java, Gradle, JavaScript, and NodeJS plugins —
+        // covers four of the five compile classpaths we need. The Python plugin (Pythonid)
+        // is NOT bundled in IDEA Ultimate, so we pull it from the JetBrains Marketplace
+        // as a third-party dependency. The compiled plugin still installs and runs on
+        // Community, WebStorm, PyCharm, Rider, etc. — base only affects compile classpath.
+        intellijIdeaUltimate("2026.1")
         bundledPlugin("com.intellij.gradle")
         bundledPlugin("com.intellij.java")
+        bundledPlugin("JavaScript")
+        // Python plugin compatible with IDEA Ultimate 2026.1 (build 261.x). Bump in
+        // lockstep with the IDE base — the Python plugin pins until-build to its own
+        // version, so a newer IDE base needs a newer Python plugin.
+        plugin("Pythonid", "261.22158.340")
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.JUnit5)
     }
@@ -43,7 +53,7 @@ intellijPlatform {
         version = project.version.toString()
         description = "Inject Doppler-managed secrets into JetBrains run configurations and browse/edit them from a tool window."
         ideaVersion {
-            sinceBuild = "242"
+            sinceBuild = "261"
         }
     }
     signing {
@@ -77,19 +87,19 @@ intellijPlatformTesting {
     runIde {
         register("runPhpStorm") {
             type = IntelliJPlatformType.PhpStorm
-            version = "2024.2"
+            version = "2026.1"
         }
         register("runWebStorm") {
             type = IntelliJPlatformType.WebStorm
-            version = "2025.2"
+            version = "2026.1"
         }
         register("runRider") {
             type = IntelliJPlatformType.Rider
-            version = "2025.2"
+            version = "2026.1"
         }
         register("runPyCharm") {
             type = IntelliJPlatformType.PyCharm
-            version = "2025.2"
+            version = "2026.1"
         }
     }
 }

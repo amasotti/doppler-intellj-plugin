@@ -5,10 +5,8 @@ import com.intellij.execution.configurations.RunnerSettings
 import com.intellij.openapi.externalSystem.service.execution.ExternalSystemRunConfiguration
 import com.intellij.openapi.externalSystem.service.execution.configuration.ExternalSystemRunConfigurationExtension
 import com.intellij.openapi.project.Project
-import com.tonihacks.doppler.injection.core.OverrideTracker
-import com.tonihacks.doppler.injection.core.SecretMerger
+import com.tonihacks.doppler.injection.core.SecretInjectionRunner
 import com.tonihacks.doppler.notification.DopplerNotifier
-import com.tonihacks.doppler.service.DopplerFetchException
 import com.tonihacks.doppler.service.DopplerProjectService
 import org.jetbrains.plugins.gradle.util.GradleConstants
 
@@ -19,17 +17,10 @@ import org.jetbrains.plugins.gradle.util.GradleConstants
  * (`com.intellij.gradle`). Loaded via `META-INF/doppler-gradle.xml`.
  *
  * **Injection path (spec §5.4):** [patchCommandLine] runs on a background thread (the
- * process-creation path). It delegates to [injectSecrets] which calls
+ * process-creation path). It delegates to [SecretInjectionRunner] which calls
  * [DopplerProjectService.fetchSecrets] (cache-first), merges with `config.settings.env`
  * (local wins — spec §5.3), and writes the result into [GeneralCommandLine.environment]
  * before Gradle starts.
- *
- * **Failure policy (spec §5.5):** CLI errors throw [DopplerFetchException]. The exception
- * is surfaced as a balloon notification and rethrown — the launch is aborted.
- *
- * **Shadow notification (spec §8.3):** when local run-config env vars shadow Doppler-managed
- * keys, a one-time-per-session balloon warning lists the *keys* (never values — spec §11.7).
- * Deduplication is handled by [OverrideTracker].
  */
 class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExtension() {
 
@@ -42,25 +33,19 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         cmdLine: GeneralCommandLine,
         runnerId: String,
     ) {
-        val project = configuration.project
         injectSecrets(
-            project = project,
+            project = configuration.project,
             existingEnv = configuration.settings.env,
             configName = configuration.name,
             cmdLine = cmdLine,
-            service = DopplerProjectService.getInstance(project),
+            service = DopplerProjectService.getInstance(configuration.project),
         )
     }
 
     /**
-     * Core injection logic, extracted as `internal` for unit testing without a live
-     * run-configuration context. [patchCommandLine] is the single production call-site.
-     *
-     * @param existingEnv the run config's user-set env vars (not system env).
-     * @param service caller-supplied so tests can inject a fake without touching the
-     *   service container.
-     * @param notifyError overridable in tests to capture notification calls without MockK.
-     * @param notifyWarning overridable in tests to capture notification calls without MockK.
+     * Testable seam: thin wrapper over [SecretInjectionRunner.run] that captures the
+     * Gradle-specific `applyMerged` step (writing back to [GeneralCommandLine.environment]).
+     * Tests call this directly with a fake [service] and overridden notification callbacks.
      */
     internal fun injectSecrets(
         project: Project,
@@ -71,28 +56,14 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         notifyError: (Project, String) -> Unit = DopplerNotifier::notifyError,
         notifyWarning: (Project, String) -> Unit = DopplerNotifier::notifyWarning,
     ) {
-        val secrets = try {
-            service.fetchSecrets()
-        } catch (e: DopplerFetchException) {
-            notifyError(project, checkNotNull(e.message))
-            throw e
-        }
-
-        if (secrets.isEmpty()) return
-
-        val result = SecretMerger.merge(existingEnv, secrets)
-        cmdLine.withEnvironment(result.merged)
-
-        if (result.shadowedKeys.isNotEmpty()) {
-            val tracker = OverrideTracker.getInstance(project)
-            if (tracker.markReportedIfNew(configName)) {
-                val keys = result.shadowedKeys.sorted().joinToString(", ")
-                notifyWarning(
-                    project,
-                    "${result.shadowedKeys.size} Doppler-managed env var(s) are shadowed by " +
-                        "local values in `$configName`: $keys.",
-                )
-            }
-        }
+        SecretInjectionRunner.run(
+            project = project,
+            existingEnv = existingEnv,
+            configName = configName,
+            service = service,
+            applyMerged = { merged -> cmdLine.withEnvironment(merged) },
+            notifyError = notifyError,
+            notifyWarning = notifyWarning,
+        )
     }
 }

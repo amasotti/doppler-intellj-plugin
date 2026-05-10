@@ -1,0 +1,21 @@
+<idea-plugin>
+    <!--
+        Optional Python family extension. Loaded only when PythonCore is present
+        (PyCharm CE/Pro, IDEA Ultimate). Covers all Python run configs whose state
+        extends AbstractPythonRunConfiguration: Python script, pytest, unittest,
+        Django manage.py, Flask, FastAPI, etc.
+
+        EP qualified name: Pythonid.runConfigurationExtension (the namespace is
+        historical — the plugin id was renamed to PythonCore but the EP namespace
+        was kept for backward compatibility).
+        Impl: PythonRunConfigurationExtension.patchCommandLine
+
+        PythonCommandLineState invokes
+        PythonRunConfigurationExtensionsManager.patchCommandLine which iterates
+        registered extensions and calls patchCommandLine on each.
+    -->
+    <extensions defaultExtensionNs="Pythonid">
+        <runConfigurationExtension
+            implementation="com.tonihacks.doppler.injection.python.DopplerPythonRunConfigurationExtension"/>
+    </extensions>
+</idea-plugin>

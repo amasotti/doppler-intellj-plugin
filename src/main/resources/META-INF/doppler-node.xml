@@ -1,0 +1,17 @@
+<idea-plugin>
+    <!--
+        Optional Node.js family extension. Loaded only when JavaScript is present
+        (WebStorm, IDEA Ultimate, PyCharm Pro). Covers all run configs whose profile
+        type is AbstractNodeTargetRunProfile: Node.js, npm, yarn, pnpm, Jest, Vitest,
+        Mocha, Cucumber JS, Bun, etc.
+
+        EP: JavaScript.nodeRunConfigurationExtension
+        Impl: AbstractNodeRunConfigurationExtension.createLaunchSession
+              (patchCommandLine on the Node base is `protected final` in the platform
+               — env injection happens via the launch session's addNodeOptionsTo hook)
+    -->
+    <extensions defaultExtensionNs="JavaScript">
+        <nodeRunConfigurationExtension
+            implementation="com.tonihacks.doppler.injection.node.DopplerNodeRunConfigurationExtension"/>
+    </extensions>
+</idea-plugin>

@@ -24,6 +24,21 @@
     -->
     <depends optional="true" config-file="doppler-java.xml">com.intellij.java</depends>
 
+    <!--
+        Node.js family injector — optional so the plugin loads cleanly in IDEs without
+        JavaScript support. Covers all configs whose profile extends
+        AbstractNodeTargetRunProfile: Node.js, npm, yarn, pnpm, Jest, Vitest, Mocha,
+        Bun, Cucumber JS. Active in WebStorm, IDEA Ultimate, PyCharm Pro.
+    -->
+    <depends optional="true" config-file="doppler-node.xml">JavaScript</depends>
+
+    <!--
+        Python family injector — optional so the plugin loads cleanly in IDEs without
+        Python support. Covers Python script, pytest, unittest, Django, Flask, FastAPI.
+        Active in PyCharm CE/Pro and IDEA Ultimate.
+    -->
+    <depends optional="true" config-file="doppler-python.xml">PythonCore</depends>
+
     <resource-bundle>messages.DopplerBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">

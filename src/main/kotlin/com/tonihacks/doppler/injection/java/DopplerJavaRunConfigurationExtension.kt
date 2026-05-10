@@ -6,10 +6,8 @@ import com.intellij.execution.configurations.JavaParameters
 import com.intellij.execution.configurations.RunConfigurationBase
 import com.intellij.execution.configurations.RunnerSettings
 import com.intellij.openapi.project.Project
-import com.tonihacks.doppler.injection.core.OverrideTracker
-import com.tonihacks.doppler.injection.core.SecretMerger
+import com.tonihacks.doppler.injection.core.SecretInjectionRunner
 import com.tonihacks.doppler.notification.DopplerNotifier
-import com.tonihacks.doppler.service.DopplerFetchException
 import com.tonihacks.doppler.service.DopplerProjectService
 
 /**
@@ -22,6 +20,10 @@ import com.tonihacks.doppler.service.DopplerProjectService
  *
  * Registered as an optional extension — only active when the Java plugin is
  * present (`com.intellij.java`). Loaded via `META-INF/doppler-java.xml`.
+ *
+ * All cross-family logic (fetch, merge, shadow-warn, error policy) lives in
+ * [SecretInjectionRunner]. This class only owns the JVM-specific predicate and
+ * the `applyMerged` lambda that writes back to [JavaParameters.env].
  */
 class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
 
@@ -33,19 +35,19 @@ class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
         params: JavaParameters,
         runnerSettings: RunnerSettings?,
     ) {
-        val project = configuration.project
         injectSecrets(
-            project = project,
+            project = configuration.project,
             existingEnv = params.env.toMap(), // snapshot before mutation
             configName = configuration.name,
             params = params,
-            service = DopplerProjectService.getInstance(project),
+            service = DopplerProjectService.getInstance(configuration.project),
         )
     }
 
     /**
-     * Core injection logic, extracted as `internal` for unit testing without a live
-     * run-configuration context. [updateJavaParameters] is the single production call-site.
+     * Testable seam: thin wrapper over [SecretInjectionRunner.run] that captures the
+     * Java-specific `applyMerged` step (writing back to [JavaParameters.env]). Tests
+     * call this directly with a fake [service] and overridden notification callbacks.
      */
     internal fun injectSecrets(
         project: Project,
@@ -56,28 +58,14 @@ class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
         notifyError: (Project, String) -> Unit = DopplerNotifier::notifyError,
         notifyWarning: (Project, String) -> Unit = DopplerNotifier::notifyWarning,
     ) {
-        val secrets = try {
-            service.fetchSecrets()
-        } catch (e: DopplerFetchException) {
-            notifyError(project, checkNotNull(e.message))
-            throw e
-        }
-
-        if (secrets.isEmpty()) return
-
-        val result = SecretMerger.merge(existingEnv, secrets)
-        params.env = HashMap(result.merged)
-
-        if (result.shadowedKeys.isNotEmpty()) {
-            val tracker = OverrideTracker.getInstance(project)
-            if (tracker.markReportedIfNew(configName)) {
-                val keys = result.shadowedKeys.sorted().joinToString(", ")
-                notifyWarning(
-                    project,
-                    "${result.shadowedKeys.size} Doppler-managed env var(s) are shadowed by " +
-                        "local values in `$configName`: $keys.",
-                )
-            }
-        }
+        SecretInjectionRunner.run(
+            project = project,
+            existingEnv = existingEnv,
+            configName = configName,
+            service = service,
+            applyMerged = { merged -> params.env = HashMap(merged) },
+            notifyError = notifyError,
+            notifyWarning = notifyWarning,
+        )
     }
 }

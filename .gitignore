@@ -47,3 +47,6 @@ bin/
 .DS_Store
 /docs/PLAN.md
 /.idea/ShadcnHelperSettings.xml
+
+setup-test-plugin.sh
+publishing/
