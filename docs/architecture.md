@@ -571,7 +571,7 @@ Designed in the spec, **not yet implemented**. Resource keys
 | Gradle plugin                       | `org.jetbrains.intellij.platform` 2.16.0 (the new 2.x — the legacy 1.x ID is retired).               |
 | Kotlin                              | 2.3.21 (`jvm` + `plugin.serialization`).                                                             |
 | JVM target / toolchain              | 21.                                                                                                  |
-| Platform baseline                   | IntelliJ Community 2024.2 (`sinceBuild = 242`).                                                      |
+| Platform baseline                   | IntelliJ Ultimate 2026.1 (`sinceBuild = 261`).                                                       |
 | `untilBuild`                        | not set — open-ended compatibility per JetBrains guidance.                                          |
 | Plugin ID                           | `com.tonihacks.doppler-intellij`.                                                                    |
 | Optional bundled deps               | `com.intellij.gradle`, `com.intellij.java` (loaded by `<depends optional="true">`).                  |
@@ -587,7 +587,7 @@ Designed in the spec, **not yet implemented**. Resource keys
 ./gradlew buildPlugin                  # build/distributions/<id>-<version>.zip
 ./gradlew test                         # JUnit 5 + IntelliJ test framework
 ./gradlew detekt                       # static analysis
-./gradlew runIde                       # sandboxed IDEA Community 2024.2
+./gradlew runIde                       # sandboxed IDEA Ultimate 2026.1
 ./gradlew runWebStorm                  # cross-IDE smoke (also runPyCharm/runPhpStorm/runRider)
 ./gradlew verifyPluginConfiguration    # platform/SDK config check
 ./gradlew verifyPlugin                 # plugin.xml + archive structure

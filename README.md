@@ -3,7 +3,7 @@
 [![JetBrains Marketplace](https://img.shields.io/jetbrains/plugin/v/31683-doppler.svg?label=marketplace)](https://plugins.jetbrains.com/plugin/31683-doppler)
 [![Downloads](https://img.shields.io/jetbrains/plugin/d/31683-doppler.svg)](https://plugins.jetbrains.com/plugin/31683-doppler)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/IntelliJ%20Platform-2024.2%2B-orange.svg)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
+[![Platform](https://img.shields.io/badge/IntelliJ%20Platform-2026.1%2B-orange.svg)](https://plugins.jetbrains.com/docs/intellij/build-number-ranges.html)
 
 Inject [Doppler](https://doppler.com)-managed secrets into JetBrains run configurations and browse, copy, edit
 or delete them from a built-in tool window — without leaving the IDE.
@@ -39,7 +39,7 @@ Nothing is ever written to disk by the plugin.
 |-------------------------------------------------------------|------------------------------------|
 | [Doppler CLI](https://docs.doppler.com/docs/install-cli)    | any recent release                 |
 | `doppler login` completed                                   | —                                  |
-| JetBrains IDE (IDEA, PyCharm, WebStorm, GoLand, Rider, ...) | 2024.2 or later                    |
+| JetBrains IDE (IDEA, PyCharm, WebStorm, GoLand, Rider, ...) | 2026.1 or later                    |
 | JDK (only for **building from source**)                     | 21                                 |
 | Gradle (only for **building from source**, wrapper bundled) | 9.1+                               |
 
@@ -170,7 +170,7 @@ model, and security boundaries are documented in
 ./gradlew buildPlugin              # produces build/distributions/*.zip
 ./gradlew test                     # JUnit 5 + IntelliJ Platform test framework
 ./gradlew detekt                   # static analysis
-./gradlew runIde                   # sandboxed IDEA Community 2024.2 with the plugin loaded
+./gradlew runIde                   # sandboxed IDEA Ultimate 2026.1 with the plugin loaded
 ./gradlew runWebStorm              # cross-IDE smoke test (also: runPyCharm, runPhpStorm, runRider)
 ./gradlew verifyPlugin             # validate plugin.xml + archive structure
 ```

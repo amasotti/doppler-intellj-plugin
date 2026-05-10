@@ -3,7 +3,7 @@
 > **Status:** Draft v1
 > **Author:** Toni Masotti
 > **Target platforms:** IntelliJ IDEA (Ultimate + Community), WebStorm, PhpStorm, PyCharm, GoLand, RustRover, Rider —
-> all on IntelliJ Platform 2024.2+
+> all on IntelliJ Platform 2026.1+
 
 ---
 
@@ -355,7 +355,7 @@ If the template is intentionally not used, document why in an ADR.
 - **Language:** Kotlin (JVM target 17).
 - **Gradle minimum:** 8.13 (required by the platform plugin 2.x).
 - **JDK minimum:** 17 (required by the platform plugin 2.x).
-- **Platform baseline:** IntelliJ Platform 2024.2 (`sinceBuild = 242`).
+- **Platform baseline:** IntelliJ Platform 2026.1 (`sinceBuild = 261`).
 - **`untilBuild`:** intentionally **not set**. The SDK docs strongly recommend leaving it open so the plugin works
   against future IDE versions; bumping incompatible versions is handled at the Marketplace level if needed.
 
@@ -424,8 +424,8 @@ These are deliberately deferred. Listed for future-Toni:
 
 The plugin is v1.0-ready when **all** of the following are true:
 
-- [ ] Runs on IntelliJ IDEA (Ultimate + Community) 2024.2+ without errors
-- [ ] Runs on WebStorm, PhpStorm, PyCharm, GoLand 2024.2+ without errors (even if family-specific injectors aren't
+- [ ] Runs on IntelliJ IDEA (Ultimate + Community) 2026.1+ without errors
+- [ ] Runs on WebStorm, PhpStorm, PyCharm, GoLand 2026.1+ without errors (even if family-specific injectors aren't
   built — the plugin shouldn't crash these IDEs)
 - [ ] Java/Kotlin run configurations inject Doppler secrets
 - [ ] Gradle run configurations inject Doppler secrets
