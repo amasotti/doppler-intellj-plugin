@@ -33,11 +33,6 @@ class OverrideTracker {
 
     private val reported: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
-    /**
-     * Atomically records [configName] as "warned about" and returns whether this call
-     * was the first to do so. Callers should fire the override notification iff this
-     * returns `true`.
-     */
     fun markReportedIfNew(configName: String): Boolean = reported.add(configName)
 
     companion object {

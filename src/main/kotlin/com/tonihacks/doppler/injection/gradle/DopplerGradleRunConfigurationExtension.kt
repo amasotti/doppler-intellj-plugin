@@ -25,8 +25,7 @@ import org.jetbrains.plugins.gradle.util.GradleConstants
  * before Gradle starts.
  *
  * **Failure policy (spec §5.5):** CLI errors throw [DopplerFetchException]. The exception
- * is surfaced as a balloon notification and rethrown — the launch is aborted. Never
- * silently launching without secrets is a hard requirement.
+ * is surfaced as a balloon notification and rethrown — the launch is aborted.
  *
  * **Shadow notification (spec §8.3):** when local run-config env vars shadow Doppler-managed
  * keys, a one-time-per-session balloon warning lists the *keys* (never values — spec §11.7).
@@ -57,8 +56,7 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
      * Core injection logic, extracted as `internal` for unit testing without a live
      * run-configuration context. [patchCommandLine] is the single production call-site.
      *
-     * @param existingEnv the run config's user-set env vars (not system env) — these win
-     *   over Doppler values on collision (spec §5.3 "local wins").
+     * @param existingEnv the run config's user-set env vars (not system env).
      * @param service caller-supplied so tests can inject a fake without touching the
      *   service container.
      * @param notifyError overridable in tests to capture notification calls without MockK.
@@ -76,8 +74,6 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         val secrets = try {
             service.fetchSecrets()
         } catch (e: DopplerFetchException) {
-            // e.message is CLI stderr verbatim — do NOT log it (spec §6.2 / §11.2).
-            // DopplerNotifier posts BALLOON with isLogByDefault=false so it fades, never persists.
             notifyError(project, checkNotNull(e.message))
             throw e
         }

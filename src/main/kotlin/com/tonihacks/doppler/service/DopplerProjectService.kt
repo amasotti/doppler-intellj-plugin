@@ -46,9 +46,7 @@ class DopplerProjectService(private val project: Project) {
      *
      * **Caller contract:** never log the returned map, never put it in a notification
      * body, never persist it. The map's `toString()` is wrapped to redact values as a
-     * defense against the most common "$secrets" log mistake, but the contents of
-     * `entries` / `values` are still raw and a determined-careless caller can leak them.
-     * Inject into process env, then drop the reference.
+     * defense against the most common "$secrets" log mistake.
      *
      * **TTL note:** the [DopplerSettingsState.State.cacheTtlSeconds] read here is applied
      * on the *next* CLI fetch (i.e. on cache miss). Already-cached entries keep their
