@@ -212,7 +212,7 @@ sequenceDiagram
         Service ->> Cache: put(project, config, secrets)
     end
     Service -->> Injector: Map<String, String>
-    Injector ->> Injector: merge with existing env (local wins; warn on shadow)
+    Injector ->> Injector: merge with existing env
     Injector ->> IDE: params with Doppler env vars
     IDE ->> User: Process launched with secrets
 ```
