@@ -99,11 +99,20 @@ class DopplerSettingsPanel(project: Project) {
         get() = cliPathField.text.trim()
         set(value) { cliPathField.text = value }
 
-    /** EDT entry point. Snapshots state, dispatches to a pool, marshals back via invokeLater. */
+    /**
+     * EDT entry point. Snapshots only the CLI path (immutable for the dispatch),
+     * runs the CLI off-EDT, then on the EDT — *at the moment of model replacement* —
+     * reads the current combo selection and uses that as `preserveSelection`.
+     *
+     * Snapshotting selection at *dispatch* time races with `reset()`: createComponent()
+     * dispatches once with empty selection, reset() then sets selection and dispatches
+     * again, and whichever pool task lands last wins. The dispatch-time snapshot from
+     * the first call would clobber the freshly-set selection. Snapshotting on the EDT
+     * just before `combo.model = …` avoids the race entirely.
+     */
     @Suppress("TooGenericExceptionCaught")
     fun loadProjectsAsync() {
         val currentCliPath = cliPath
-        val currentSelection = selectedProject
         val combo = projectCombo
         LOG.info("DopplerSettingsPanel: loadProjectsAsync dispatching, cliPath='$currentCliPath'")
         ApplicationManager.getApplication().executeOnPooledThread {
@@ -115,8 +124,9 @@ class DopplerSettingsPanel(project: Project) {
                         val slugs = result.value.map { it.slug }
                         LOG.info("DopplerSettingsPanel: listProjects success, ${slugs.size} projects: $slugs")
                         ApplicationManager.getApplication().invokeLater({
+                            val currentSelection = combo.selectedItem as? String ?: ""
                             updateCombo(combo, slugs, preserveSelection = currentSelection)
-                            LOG.info("DopplerSettingsPanel: projectCombo updated")
+                            LOG.info("DopplerSettingsPanel: projectCombo updated, preserved='$currentSelection'")
                         }, ModalityState.any())
                     }
                     is DopplerResult.Failure -> LOG.warn("DopplerSettingsPanel: listProjects failed: ${result.error}")
@@ -130,7 +140,6 @@ class DopplerSettingsPanel(project: Project) {
     @Suppress("TooGenericExceptionCaught")
     private fun loadConfigsAsync(projectSlug: String) {
         val currentCliPath = cliPath
-        val currentSelection = selectedConfig
         val combo = configCombo
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
@@ -139,6 +148,7 @@ class DopplerSettingsPanel(project: Project) {
                     is DopplerResult.Success -> {
                         val names = result.value.map { it.name }
                         ApplicationManager.getApplication().invokeLater({
+                            val currentSelection = combo.selectedItem as? String ?: ""
                             updateCombo(combo, names, preserveSelection = currentSelection)
                         }, ModalityState.any())
                     }
