@@ -24,6 +24,13 @@ internal object SecretInjectionRunner {
         notifyError: (Project, String) -> Unit = DopplerNotifier::notifyError,
         notifyWarning: (Project, String) -> Unit = DopplerNotifier::notifyWarning,
     ) {
+        // Node's createLaunchSession → addNodeOptionsTo path can fire after the project
+        // is closed. Service / tracker lookup against a disposed project throws
+        // AlreadyDisposedException — which the platform may surface as a "Report to
+        // JetBrains" dialog rather than a clean launch-abort. No injection is the
+        // correct outcome when the project is gone.
+        if (project.isDisposed) return
+
         val secrets = try {
             service.fetchSecrets()
         } catch (e: DopplerFetchException) {
