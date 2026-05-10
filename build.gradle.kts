@@ -111,14 +111,29 @@ intellijPlatformTesting {
         register("runPhpStorm") {
             type = IntelliJPlatformType.PhpStorm
             version = "2026.1"
+            plugins {
+                // PythonCore is not relevant in PhpStorm and requires org.toml.lang
+                // which is not bundled here; disable to prevent a broken-dependency balloon.
+                disablePlugin("PythonCore")
+            }
         }
         register("runWebStorm") {
             type = IntelliJPlatformType.WebStorm
             version = "2026.1"
+            plugins {
+                // PythonCore is not relevant in WebStorm and requires org.toml.lang
+                // which is not bundled here; disable to prevent a broken-dependency balloon.
+                disablePlugin("PythonCore")
+            }
         }
         register("runRider") {
             type = IntelliJPlatformType.Rider
             version = "2026.1"
+            plugins {
+                // PythonCore is not relevant in Rider and requires org.toml.lang
+                // which is not bundled here; disable to prevent a broken-dependency balloon.
+                disablePlugin("PythonCore")
+            }
         }
         register("runPyCharm") {
             type = IntelliJPlatformType.PyCharm
