@@ -229,7 +229,7 @@ If you can't answer "no" with certainty, the change is not ready.
 
 - One `plugin.xml` per module. Family-specific extensions go behind `<depends optional="true" config-file="...">` so the
   plugin loads cleanly in IDEs without that family.
-- Declare `<idea-version since-build="242"/>` (matches §9 of spec).
+- Declare `<idea-version since-build="261"/>` (matches §9 of spec).
 - Use `<localInspection>`, `<projectService>`, etc. — never inline Java-style XML registration.
 
 ### 4.3 Notifications
