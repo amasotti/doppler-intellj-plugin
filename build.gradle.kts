@@ -65,6 +65,17 @@ intellijPlatform {
             sinceBuild = "261"
         }
     }
+    // Pin verifier to IU-2026.1 (matches the PythonCore 261.24374.66 pin above).
+    // Without this, the default `recommended()` IDE list also picks IU-2026.2,
+    // where the 261.x PythonCore artifact does not resolve and the optional
+    // `com.intellij.modules.python` dep produces a hard COMPATIBILITY ERROR.
+    // Bumping verification to 2026.2 requires bumping the PythonCore pin to a
+    // 262-compatible build (e.g. 262.4852.50) — do both together.
+    pluginVerification {
+        ides {
+            create(IntelliJPlatformType.IntellijIdeaUltimate, "2026.1")
+        }
+    }
     signing {
         certificateChain = providers.environmentVariable("CERTIFICATE_CHAIN")
         privateKey = providers.environmentVariable("PRIVATE_KEY")
