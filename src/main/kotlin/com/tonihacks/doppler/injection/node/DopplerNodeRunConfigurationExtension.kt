@@ -5,6 +5,7 @@ import com.intellij.javascript.nodejs.execution.AbstractNodeTargetRunProfile
 import com.intellij.javascript.nodejs.execution.NodeTargetRun
 import com.intellij.javascript.nodejs.execution.runConfiguration.AbstractNodeRunConfigurationExtension
 import com.intellij.javascript.nodejs.execution.runConfiguration.NodeRunConfigurationLaunchSession
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.tonihacks.doppler.injection.core.SecretInjectionRunner
 import com.tonihacks.doppler.service.DopplerProjectService
@@ -23,7 +24,10 @@ class DopplerNodeRunConfigurationExtension : AbstractNodeRunConfigurationExtensi
     override fun createLaunchSession(
         configuration: AbstractNodeTargetRunProfile,
         environment: ExecutionEnvironment,
-    ): NodeRunConfigurationLaunchSession = DopplerNodeLaunchSession(configuration.project, configuration.name)
+    ): NodeRunConfigurationLaunchSession {
+        thisLogger().info("[doppler-debug] Node createLaunchSession fired for '${configuration.name}'")
+        return DopplerNodeLaunchSession(configuration.project, configuration.name)
+    }
 
     private class DopplerNodeLaunchSession(
         private val project: Project,

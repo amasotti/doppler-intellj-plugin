@@ -2,6 +2,7 @@ package com.tonihacks.doppler.injection.gradle
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.configurations.RunnerSettings
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.externalSystem.service.execution.ExternalSystemRunConfiguration
 import com.intellij.openapi.externalSystem.service.execution.configuration.ExternalSystemRunConfigurationExtension
 import com.intellij.openapi.project.Project
@@ -13,8 +14,11 @@ import org.jetbrains.plugins.gradle.util.GradleConstants
 /** Gradle injector. Loaded via `doppler-gradle.xml`. Filters out Maven/npm by SYSTEM_ID. */
 class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExtension() {
 
-    override fun isApplicableFor(configuration: ExternalSystemRunConfiguration): Boolean =
-        configuration.settings.externalSystemId == GradleConstants.SYSTEM_ID
+    override fun isApplicableFor(configuration: ExternalSystemRunConfiguration): Boolean {
+        val match = configuration.settings.externalSystemId == GradleConstants.SYSTEM_ID
+        thisLogger().info("[doppler-debug] Gradle isApplicableFor '${configuration.name}' externalSystemId=${configuration.settings.externalSystemId} → $match")
+        return match
+    }
 
     override fun patchCommandLine(
         configuration: ExternalSystemRunConfiguration,
@@ -22,6 +26,7 @@ class DopplerGradleRunConfigurationExtension : ExternalSystemRunConfigurationExt
         cmdLine: GeneralCommandLine,
         runnerId: String,
     ) {
+        thisLogger().info("[doppler-debug] Gradle patchCommandLine fired for '${configuration.name}' runnerId=$runnerId")
         injectSecrets(
             project = configuration.project,
             existingEnv = configuration.settings.env,

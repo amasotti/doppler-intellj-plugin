@@ -39,8 +39,11 @@ dependencies {
         bundledPlugin("NodeJS")
         // Python Community Edition plugin from JetBrains Marketplace (ID 7322). Provides
         // the `PythonRunConfigurationExtension` base + `AbstractPythonRunConfiguration`
-        // we need.
-        plugin("PythonCore", "261.24374.66")
+        // we need. Pinned to 261.22158.277 — the marketplace build whose `since` build
+        // matches IU-2026.1 GA (IU-261.22158.277). Newer 261.x PythonCore artifacts
+        // (e.g. 261.24374.66) require a later 261.x sub-build than the IU GA ships, so
+        // they fail to load with "requires IDE build 261.24374 or newer" in the sandbox.
+        plugin("PythonCore", "261.22158.277")
         testFramework(TestFrameworkType.Platform)
         testFramework(TestFrameworkType.JUnit5)
     }
@@ -65,7 +68,7 @@ intellijPlatform {
             sinceBuild = "261"
         }
     }
-    // Pin verifier to IU-2026.1 (matches the PythonCore 261.24374.66 pin above).
+    // Pin verifier to IU-2026.1 (matches the PythonCore 261.22158.277 pin above).
     // Without this, the default `recommended()` IDE list also picks IU-2026.2,
     // where the 261.x PythonCore artifact does not resolve and the optional
     // `com.intellij.modules.python` dep produces a hard COMPATIBILITY ERROR.

@@ -2,6 +2,7 @@ package com.tonihacks.doppler.injection.python
 
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.configurations.RunnerSettings
+import com.intellij.openapi.diagnostic.thisLogger
 import com.jetbrains.python.run.AbstractPythonRunConfiguration
 import com.jetbrains.python.run.PythonRunConfigurationExtension
 import com.tonihacks.doppler.injection.core.SecretInjectionRunner
@@ -27,6 +28,7 @@ class DopplerPythonRunConfigurationExtension : PythonRunConfigurationExtension()
         cmdLine: GeneralCommandLine,
         runnerId: String,
     ) {
+        thisLogger().info("[doppler-debug] Python patchCommandLine fired for '${configuration.name}' runnerId=$runnerId")
         SecretInjectionRunner.run(
             project = configuration.project,
             existingEnv = cmdLine.environment.toMap(),

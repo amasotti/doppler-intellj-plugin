@@ -5,6 +5,7 @@ import com.intellij.execution.RunConfigurationExtension
 import com.intellij.execution.configurations.JavaParameters
 import com.intellij.execution.configurations.RunConfigurationBase
 import com.intellij.execution.configurations.RunnerSettings
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.tonihacks.doppler.injection.core.SecretInjectionRunner
 import com.tonihacks.doppler.notification.DopplerNotifier
@@ -21,6 +22,7 @@ class DopplerJavaRunConfigurationExtension : RunConfigurationExtension() {
         params: JavaParameters,
         runnerSettings: RunnerSettings?,
     ) {
+        thisLogger().info("[doppler-debug] Java updateJavaParameters fired for '${configuration.name}' (type=${configuration::class.java.simpleName})")
         injectSecrets(
             project = configuration.project,
             existingEnv = params.env.toMap(),
