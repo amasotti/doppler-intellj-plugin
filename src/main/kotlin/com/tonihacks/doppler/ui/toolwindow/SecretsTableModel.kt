@@ -77,8 +77,15 @@ class SecretsTableModel : AbstractTableModel() {
         fireTableCellUpdated(rowIndex, columnIndex)
     }
 
+    /**
+     * A masked cell must NOT be editable. If the user double-clicks a masked cell,
+     * the Swing editor populates with the [MASKED_PLACEHOLDER] string ("•••…") and
+     * a stray Enter would commit that placeholder as the secret's new value — the
+     * CLI would then save "•••…" to Doppler, destroying the original secret.
+     * Editing requires the user to first reveal the row.
+     */
     override fun isCellEditable(rowIndex: Int, columnIndex: Int): Boolean =
-        columnIndex == COL_VALUE
+        columnIndex == COL_VALUE && _rows[rowIndex].revealed
 
     /** Never prints secret values — returns a count-only summary. */
     override fun toString(): String = "[REDACTED x${_rows.size}]"

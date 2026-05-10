@@ -29,6 +29,8 @@ import com.tonihacks.doppler.ui.toolwindow.DopplerToolWindowPanel
  * inside the panel's own methods.
  */
 
+// Mirrors `<projectConfigurable id="..."/>` in plugin.xml. Drift here = Settings
+// dialog opens at the wrong page silently. Update both together.
 private const val SETTINGS_CONFIGURABLE_ID = "com.tonihacks.doppler.settings"
 
 internal class RefreshAction(private val panel: DopplerToolWindowPanel) : AnAction(
@@ -54,6 +56,12 @@ internal class AddSecretAction(private val panel: DopplerToolWindowPanel) : AnAc
 ) {
     override fun actionPerformed(e: AnActionEvent) {
         panel.showAddDialog()
+    }
+
+    override fun update(e: AnActionEvent) {
+        // Disabled while a fetch is in flight — otherwise an Add submit could race the
+        // tail of an in-progress reload and silently lose its `loadSecretsAsync()`.
+        e.presentation.isEnabled = !panel.isLoading
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT

@@ -66,9 +66,19 @@ class SecretsTableModelTest {
     }
 
     @Test
-    fun `isCellEditable returns true only for value column`() {
+    fun `isCellEditable returns false on a masked value cell`() {
+        // Guards against committing the masked placeholder as the secret's new value:
+        // a masked cell must be revealed first before the user can edit.
         val model = SecretsTableModel()
-        model.setRows(listOf(SecretRow("KEY", "v")))
+        model.setRows(listOf(SecretRow("KEY", "v", revealed = false)))
+
+        assertThat(model.isCellEditable(0, SecretsTableModel.COL_VALUE)).isFalse()
+    }
+
+    @Test
+    fun `isCellEditable returns true on a revealed value cell`() {
+        val model = SecretsTableModel()
+        model.setRows(listOf(SecretRow("KEY", "v", revealed = true)))
 
         assertThat(model.isCellEditable(0, SecretsTableModel.COL_NAME)).isFalse()
         assertThat(model.isCellEditable(0, SecretsTableModel.COL_VALUE)).isTrue()

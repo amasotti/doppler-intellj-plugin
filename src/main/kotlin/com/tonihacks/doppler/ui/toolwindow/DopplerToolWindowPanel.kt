@@ -7,6 +7,7 @@ import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
 import com.intellij.ui.components.JBLabel
@@ -91,8 +92,11 @@ class DopplerToolWindowPanel(
      * a second click from racing with an in-progress fetch (issue: refresh button
      * required multiple clicks to take effect because each click queued another
      * background task before the previous one finished).
+     *
+     * Mutated only on the EDT — both write sites are inside `loadSecretsAsync`
+     * (entry guard) and inside `invokeLater` callbacks (completion / error). No
+     * background-thread access, hence no `@Volatile`.
      */
-    @Volatile
     internal var isLoading: Boolean = false
         private set
 
@@ -107,7 +111,12 @@ class DopplerToolWindowPanel(
             override fun mouseReleased(e: MouseEvent) = maybeShowContextMenu(e)
         })
         // Selection drives enable-state of row-aware actions; nudge toolbar on every change.
-        table.selectionModel.addListSelectionListener { actionToolbar.updateActionsAsync() }
+        // Selection drives enable-state of row-aware actions. Filter `valueIsAdjusting`
+        // so we update once per click instead of twice (Swing fires intermediate
+        // adjusting events during a single selection change).
+        table.selectionModel.addListSelectionListener { e ->
+            if (!e.valueIsAdjusting) actionToolbar.updateActionsAsync()
+        }
         saveButton.addActionListener { saveChangesAsync() }
     }
 
@@ -153,25 +162,61 @@ class DopplerToolWindowPanel(
         actionToolbar.updateActionsAsync()
         statusLabel.text = DopplerBundle.message("toolwindow.status.loading")
         ApplicationManager.getApplication().executeOnPooledThread {
+            // Guarantee `isLoading` is reset on every exit path: success, expected
+            // failure (DopplerFetchException), or unexpected RuntimeException. Without
+            // this, a stray NPE / IllegalStateException from a future code path would
+            // leave `isLoading = true` permanently, disabling Refresh for the rest of
+            // the IDE session. ProcessCanceledException is rethrown unchanged per
+            // IntelliJ Platform contract — it must reach the platform's cancellation
+            // handler.
+            var error: DopplerFetchException? = null
+            var unexpected: Throwable? = null
+            var secrets: Map<String, String>? = null
             try {
-                val secrets = DopplerProjectService.getInstance(project).fetchSecrets()
+                secrets = DopplerProjectService.getInstance(project).fetchSecrets()
+            } catch (e: ProcessCanceledException) {
                 ApplicationManager.getApplication().invokeLater({
-                    applyLoadedSecrets(secrets)
                     isLoading = false
                     actionToolbar.updateActionsAsync()
                 }, ModalityState.any())
+                throw e
             } catch (e: DopplerFetchException) {
-                // Log only the exception type — never e.message, which is CLI stderr and
-                // might contain key names (not values in normal operation, but defensive).
-                LOG.warn("DopplerToolWindowPanel: fetch failed (${e.javaClass.simpleName})")
-                // e.message is String (non-nullable) — DopplerFetchException overrides val message: String
-                ApplicationManager.getApplication().invokeLater({
-                    applyFetchError(e.message)
-                    notifyError(project, e.message)
+                error = e
+            } catch (@Suppress("TooGenericExceptionCaught") e: RuntimeException) {
+                // Defensive last-resort catch so an unexpected RuntimeException
+                // (e.g. NPE from a future fetchSecrets() refactor) cannot leave
+                // `isLoading = true` forever and permanently disable Refresh.
+                // ProcessCanceledException is already caught + rethrown above.
+                unexpected = e
+            }
+
+            ApplicationManager.getApplication().invokeLater({
+                try {
+                    when {
+                        secrets != null -> applyLoadedSecrets(secrets)
+                        error != null -> {
+                            // Never log e.message — it is CLI stderr verbatim. Log only the
+                            // exception class name so leaks via log-shipping are impossible.
+                            LOG.warn("DopplerToolWindowPanel: fetch failed (${error.javaClass.simpleName})")
+                            applyFetchError(error.message)
+                            notifyError(project, error.message)
+                        }
+                        unexpected != null -> {
+                            // Unexpected throwable: log only class name (not message,
+                            // not stack trace string — defensive against accidental
+                            // value-bearing causes). Surface a generic message to user.
+                            val cls = unexpected.javaClass.simpleName
+                            LOG.warn("DopplerToolWindowPanel: fetch failed unexpectedly ($cls)")
+                            val msg = DopplerBundle.message("toolwindow.status.unexpected.error")
+                            applyFetchError(msg)
+                            notifyError(project, msg)
+                        }
+                    }
+                } finally {
                     isLoading = false
                     actionToolbar.updateActionsAsync()
-                }, ModalityState.any())
-            }
+                }
+            }, ModalityState.any())
         }
     }
 
@@ -262,6 +307,11 @@ class DopplerToolWindowPanel(
      */
     internal fun deleteSelectedWithConfirm() {
         val row = selectedSecretRow() ?: return
+        confirmAndDelete(row)
+    }
+
+    /** EDT-only. Shared confirm + async delete used by both toolbar and context menu. */
+    private fun confirmAndDelete(row: SecretRow) {
         val confirm = JOptionPane.showConfirmDialog(
             this,
             DopplerBundle.message("toolwindow.delete.confirm", row.key),
@@ -424,13 +474,7 @@ class DopplerToolWindowPanel(
         }
 
         menu.add(DopplerBundle.message("toolwindow.context.delete")).addActionListener {
-            val confirm = JOptionPane.showConfirmDialog(
-                this@DopplerToolWindowPanel,
-                DopplerBundle.message("toolwindow.delete.confirm", capturedRow.key),
-                DopplerBundle.message("toolwindow.context.delete"),
-                JOptionPane.OK_CANCEL_OPTION,
-            )
-            if (confirm == JOptionPane.OK_OPTION) deleteSecretAsync(capturedRow)
+            confirmAndDelete(capturedRow)
         }
 
         return menu
