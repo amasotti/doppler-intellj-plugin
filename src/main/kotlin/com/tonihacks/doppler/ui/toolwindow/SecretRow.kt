@@ -1,16 +1,8 @@
 package com.tonihacks.doppler.ui.toolwindow
 
 /**
- * A single row in the Doppler secrets table.
- *
- * ## Security
- *
- * [toString] is overridden so that the auto-generated data-class representation is
- * suppressed — prevents accidental exposure of [value] through `log.debug("$row")`,
- * debugger watch expressions, or `toString()` calls in exception messages.
- *
- * [value] is intentionally a `var` so [SecretsTableModel.setValueAt] can update it
- * in-place without replacing the row object; this keeps the table index stable.
+ * One row in the secrets table. [value] is `var` so [SecretsTableModel.setValueAt]
+ * can update in-place and keep the table index stable. Redacted [toString].
  */
 data class SecretRow(
     val key: String,

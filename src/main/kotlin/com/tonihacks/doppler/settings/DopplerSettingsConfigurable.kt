@@ -5,25 +5,7 @@ import com.intellij.openapi.project.Project
 import com.tonihacks.doppler.DopplerBundle
 import javax.swing.JComponent
 
-/**
- * IntelliJ settings page under **Settings → Tools → Doppler**.
- *
- * Registered in `plugin.xml` as a `<projectConfigurable>` with
- * `nonDefaultProject="true"` so it is absent from the synthetic default project
- * and `parentId="tools"` so it appears under the Tools group.
- *
- * IntelliJ Platform injects the current [Project] into the constructor when it
- * instantiates this class from the `<projectConfigurable instance="...">` element.
- *
- * **Lifecycle:** [createComponent] is called once per dialog open; the returned
- * [JComponent] is cached by IntelliJ. [disposeUIResources] nulls the panel reference
- * so GC can collect the Swing tree when the dialog closes.
- *
- * **State flow:**
- * - [reset] → reads [DopplerSettingsState] → writes to [DopplerSettingsPanel]
- * - [isModified] → compares [DopplerSettingsPanel] to [DopplerSettingsState]
- * - [apply] → reads [DopplerSettingsPanel] → writes to [DopplerSettingsState]
- */
+/** Settings → Tools → Doppler. The platform constructs this with the current [Project]. */
 class DopplerSettingsConfigurable(private val project: Project) : Configurable {
 
     private var panel: DopplerSettingsPanel? = null
@@ -33,7 +15,6 @@ class DopplerSettingsConfigurable(private val project: Project) : Configurable {
     override fun createComponent(): JComponent {
         val p = DopplerSettingsPanel(project)
         panel = p
-        // Kick off async project loading; results populate the combo when they arrive.
         p.loadProjectsAsync()
         return p.component
     }
@@ -66,7 +47,7 @@ class DopplerSettingsConfigurable(private val project: Project) : Configurable {
         p.selectedConfig = s.dopplerConfig
         p.cacheTtlSeconds = s.cacheTtlSeconds
         p.cliPath = s.cliPath
-        // Refresh the project list from the CLI in case the CLI path changed.
+        // Refresh project list in case CLI path changed.
         p.loadProjectsAsync()
     }
 

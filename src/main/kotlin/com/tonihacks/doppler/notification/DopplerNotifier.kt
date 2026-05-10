@@ -6,16 +6,10 @@ import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 
 /**
- * Single funnel for every user-facing message in the plugin.
+ * Single funnel for every user-facing message. Group `Doppler` is registered in `plugin.xml`.
+ * Thread-safe — `Notification.notify` posts to the EDT internally.
  *
- * Per spec §8.3: one `NotificationGroup` (`Doppler`), declared in `plugin.xml`.
- * Callers must never construct `Notification` instances directly or use `Notifications.Bus`.
- *
- * Thread-safe: may be called from any thread. `Notification.notify(project)` posts to the
- * EDT internally, so background callers (e.g. CLI failure paths) need no extra wrapping.
- *
- * Messages must never contain Doppler secret values — only secret *keys*, project / config
- * slugs, and CLI stderr (which itself must not contain values per `DopplerCliClient` contract).
+ * Messages must contain only secret *keys*, slugs, or CLI stderr — never values.
  */
 object DopplerNotifier {
 

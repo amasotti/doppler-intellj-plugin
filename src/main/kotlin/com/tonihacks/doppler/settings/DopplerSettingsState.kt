@@ -7,12 +7,7 @@ import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 
-/**
- * Per-IDE-project Doppler settings persisted to `.idea/doppler.xml`.
- *
- * **No secret values are stored here** — only project / config slugs and config knobs.
- * The XML file is treated as committed-and-public per spec §7.1.
- */
+/** Per-IDE-project Doppler settings persisted to `.idea/doppler.xml`. No secret values stored. */
 @Service(Service.Level.PROJECT)
 @State(
     name = "DopplerSettings",
@@ -27,10 +22,8 @@ class DopplerSettingsState : PersistentStateComponent<DopplerSettingsState.State
         var cacheTtlSeconds: Int = DEFAULT_CACHE_TTL_SECONDS,
         var cliPath: String = "",
     ) {
-        // Override the data-class auto-generated toString so a stray log statement cannot
-        // leak filesystem paths (cliPath) or internal naming (project / config slugs).
-        // Defense in depth — none of these are secrets, but they shouldn't
-        // surface in logs either. Same precedent as SecretCache.Entry.
+        // Defense-in-depth: nothing here is a secret value, but slugs and the CLI
+        // path shouldn't surface in logs either.
         override fun toString(): String =
             "State(enabled=$enabled, dopplerProject=<redacted>, dopplerConfig=<redacted>, " +
                 "cacheTtlSeconds=$cacheTtlSeconds, cliPath=<redacted>)"
@@ -38,8 +31,6 @@ class DopplerSettingsState : PersistentStateComponent<DopplerSettingsState.State
 
     private var stateInstance: State = State()
 
-    // Kotlin callers reach this via the synthetic `state` property accessor
-    // (JavaBean style: `getState()` ⇒ `settings.state`).
     override fun getState(): State = stateInstance
 
     override fun loadState(state: State) {
