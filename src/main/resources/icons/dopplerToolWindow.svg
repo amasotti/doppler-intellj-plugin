@@ -1,0 +1,19 @@
+<svg width="13" height="13" viewBox="0 0 13 13" xmlns="http://www.w3.org/2000/svg" fill="none">
+  <!--
+    Tool window stripe icon — 13x13 monochrome, follows JetBrains UI guidelines.
+    Color #6E6E6E is the platform-recommended neutral grey; the IDE auto-filters
+    it for dark theme so a single SVG covers both light and dark.
+
+    Motif: key (matches the marketplace plugin icon's key glyph) — small head
+    + shaft + one tooth, simplified for legibility at 13px.
+  -->
+  <g stroke="#6E6E6E" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Key head: ring at top -->
+    <circle cx="5" cy="4" r="2.4"/>
+    <!-- Shaft: from head down to bottom -->
+    <path d="M6.7 5.7 L11 10"/>
+    <!-- Tooth: short notch on the right side of the shaft -->
+    <path d="M9.3 8.3 L8 9.6"/>
+    <path d="M11 10 L9.8 11.2"/>
+  </g>
+</svg>
