@@ -9,7 +9,6 @@ import javax.swing.table.AbstractTableModel
  * Columns:
  *  - 0 ([COL_NAME]) — secret key, read-only
  *  - 1 ([COL_VALUE]) — secret value, masked by default, editable
- *  - 2 ([COL_VISIBILITY]) — "Masked" / "Revealed" label, read-only
  *
  * ## Security
  *
@@ -23,7 +22,6 @@ class SecretsTableModel : AbstractTableModel() {
     companion object {
         const val COL_NAME = 0
         const val COL_VALUE = 1
-        const val COL_VISIBILITY = 2
 
         /** Placeholder shown in the Value cell when a row is not revealed. */
         const val MASKED_PLACEHOLDER = "••••••••"
@@ -55,12 +53,11 @@ class SecretsTableModel : AbstractTableModel() {
     fun hasModifiedRows(): Boolean = _rows.any { it.modified }
 
     override fun getRowCount(): Int = _rows.size
-    override fun getColumnCount(): Int = 3
+    override fun getColumnCount(): Int = 2
 
     override fun getColumnName(column: Int): String = when (column) {
         COL_NAME -> DopplerBundle.message("toolwindow.column.name")
         COL_VALUE -> DopplerBundle.message("toolwindow.column.value")
-        COL_VISIBILITY -> DopplerBundle.message("toolwindow.column.visibility")
         else -> ""
     }
 
@@ -69,10 +66,6 @@ class SecretsTableModel : AbstractTableModel() {
         return when (columnIndex) {
             COL_NAME -> row.key
             COL_VALUE -> if (row.revealed) row.value else MASKED_PLACEHOLDER
-            COL_VISIBILITY -> if (row.revealed)
-                DopplerBundle.message("toolwindow.revealed")
-            else
-                DopplerBundle.message("toolwindow.masked")
             else -> ""
         }
     }

@@ -1,7 +1,6 @@
 package com.tonihacks.doppler.ui.toolwindow
 
 import com.intellij.testFramework.junit5.TestApplication
-import com.tonihacks.doppler.DopplerBundle
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 
@@ -19,10 +18,10 @@ class SecretsTableModelTest {
     // ── initial state ──────────────────────────────────────────────────────────
 
     @Test
-    fun `empty model has zero rows and three columns`() {
+    fun `empty model has zero rows and two columns`() {
         val model = SecretsTableModel()
         assertThat(model.rowCount).isEqualTo(0)
-        assertThat(model.columnCount).isEqualTo(3)
+        assertThat(model.columnCount).isEqualTo(2)
     }
 
     // ── masking ────────────────────────────────────────────────────────────────
@@ -40,22 +39,6 @@ class SecretsTableModelTest {
         val model = SecretsTableModel()
         model.setRows(listOf(SecretRow("API_KEY", "super-secret", revealed = true)))
         assertThat(model.getValueAt(0, SecretsTableModel.COL_VALUE)).isEqualTo("super-secret")
-    }
-
-    @Test
-    fun `visibility column returns Masked string when row is not revealed`() {
-        val model = SecretsTableModel()
-        model.setRows(listOf(SecretRow("K", "v")))
-        assertThat(model.getValueAt(0, SecretsTableModel.COL_VISIBILITY))
-            .isEqualTo(DopplerBundle.message("toolwindow.masked"))
-    }
-
-    @Test
-    fun `visibility column returns Revealed string when row is revealed`() {
-        val model = SecretsTableModel()
-        model.setRows(listOf(SecretRow("K", "v", revealed = true)))
-        assertThat(model.getValueAt(0, SecretsTableModel.COL_VISIBILITY))
-            .isEqualTo(DopplerBundle.message("toolwindow.revealed"))
     }
 
     // ── editing ────────────────────────────────────────────────────────────────
@@ -89,7 +72,6 @@ class SecretsTableModelTest {
 
         assertThat(model.isCellEditable(0, SecretsTableModel.COL_NAME)).isFalse()
         assertThat(model.isCellEditable(0, SecretsTableModel.COL_VALUE)).isTrue()
-        assertThat(model.isCellEditable(0, SecretsTableModel.COL_VISIBILITY)).isFalse()
     }
 
     // ── hasModifiedRows ────────────────────────────────────────────────────────

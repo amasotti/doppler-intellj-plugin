@@ -1,5 +1,9 @@
 package com.tonihacks.doppler.ui.toolwindow
 
+import com.intellij.openapi.actionSystem.ActionManager
+import com.intellij.openapi.actionSystem.ActionToolbar
+import com.intellij.openapi.actionSystem.DefaultActionGroup
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.diagnostic.Logger
@@ -15,9 +19,13 @@ import com.tonihacks.doppler.notification.DopplerNotifier
 import com.tonihacks.doppler.service.DopplerFetchException
 import com.tonihacks.doppler.service.DopplerProjectService
 import com.tonihacks.doppler.settings.DopplerSettingsState
+import com.tonihacks.doppler.ui.toolwindow.actions.AddSecretAction
+import com.tonihacks.doppler.ui.toolwindow.actions.CopyValueAction
+import com.tonihacks.doppler.ui.toolwindow.actions.DeleteSecretAction
+import com.tonihacks.doppler.ui.toolwindow.actions.OpenSettingsAction
+import com.tonihacks.doppler.ui.toolwindow.actions.RefreshAction
+import com.tonihacks.doppler.ui.toolwindow.actions.RevealHideAction
 import java.awt.BorderLayout
-import java.awt.FlowLayout
-import java.awt.GridLayout
 import java.awt.datatransfer.StringSelection
 import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
@@ -64,6 +72,7 @@ class DopplerToolWindowPanel(
 
     companion object {
         private val LOG = Logger.getInstance(DopplerToolWindowPanel::class.java)
+        private const val TOOLBAR_PLACE = "DopplerToolWindowToolbar"
 
         private fun defaultCli(project: Project): DopplerCliClient {
             val cliPath = DopplerSettingsState.getInstance(project).state.cliPath
@@ -76,6 +85,19 @@ class DopplerToolWindowPanel(
     internal val statusLabel = JBLabel(DopplerBundle.message("toolwindow.status.loading"))
     internal val saveButton = JButton(DopplerBundle.message("toolwindow.save")).also { it.isEnabled = false }
 
+    /**
+     * EDT-only flag indicating a `loadSecretsAsync` is in flight. Read by
+     * [com.tonihacks.doppler.ui.toolwindow.actions.RefreshAction.update] to prevent
+     * a second click from racing with an in-progress fetch (issue: refresh button
+     * required multiple clicks to take effect because each click queued another
+     * background task before the previous one finished).
+     */
+    @Volatile
+    internal var isLoading: Boolean = false
+        private set
+
+    private lateinit var actionToolbar: ActionToolbar
+
     init {
         setupLayout()
         // Single source of truth for save-button state: the model listener.
@@ -84,23 +106,31 @@ class DopplerToolWindowPanel(
             override fun mousePressed(e: MouseEvent) = maybeShowContextMenu(e)
             override fun mouseReleased(e: MouseEvent) = maybeShowContextMenu(e)
         })
+        // Selection drives enable-state of row-aware actions; nudge toolbar on every change.
+        table.selectionModel.addListSelectionListener { actionToolbar.updateActionsAsync() }
         saveButton.addActionListener { saveChangesAsync() }
     }
 
     private fun setupLayout() {
-        val toolbar = JPanel(FlowLayout(FlowLayout.LEFT))
-        val refreshButton = JButton(DopplerBundle.message("toolwindow.refresh"))
-        val addButton = JButton(DopplerBundle.message("toolwindow.add"))
-        refreshButton.addActionListener { loadSecretsAsync() }
-        addButton.addActionListener { showAddDialog() }
-        toolbar.add(refreshButton)
-        toolbar.add(addButton)
+        val group = DefaultActionGroup().apply {
+            add(RefreshAction(this@DopplerToolWindowPanel))
+            add(AddSecretAction(this@DopplerToolWindowPanel))
+            addSeparator()
+            add(RevealHideAction(this@DopplerToolWindowPanel))
+            add(CopyValueAction(this@DopplerToolWindowPanel))
+            add(DeleteSecretAction(this@DopplerToolWindowPanel))
+            add(Separator.getInstance())
+            add(OpenSettingsAction(project))
+        }
+        actionToolbar = ActionManager.getInstance()
+            .createActionToolbar(TOOLBAR_PLACE, group, /* horizontal = */ true)
+            .apply { targetComponent = this@DopplerToolWindowPanel }
 
         val south = JPanel(BorderLayout())
         south.add(statusLabel, BorderLayout.WEST)
         south.add(saveButton, BorderLayout.EAST)
 
-        add(toolbar, BorderLayout.NORTH)
+        add(actionToolbar.component, BorderLayout.NORTH)
         add(JBScrollPane(table), BorderLayout.CENTER)
         add(south, BorderLayout.SOUTH)
     }
@@ -111,14 +141,24 @@ class DopplerToolWindowPanel(
      * Fetches secrets in the background and populates the table on success.
      *
      * Must be called from the EDT (e.g., button listener, tool window init).
+     *
+     * Sets [isLoading] = true for the duration of the fetch. The Refresh action's
+     * `update()` reads this flag and disables itself, so a user can't enqueue a
+     * second fetch while the first is still running. Both completion paths
+     * (success and failure) reset [isLoading] = false on the EDT.
      */
     fun loadSecretsAsync() {
+        if (isLoading) return
+        isLoading = true
+        actionToolbar.updateActionsAsync()
         statusLabel.text = DopplerBundle.message("toolwindow.status.loading")
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
                 val secrets = DopplerProjectService.getInstance(project).fetchSecrets()
                 ApplicationManager.getApplication().invokeLater({
                     applyLoadedSecrets(secrets)
+                    isLoading = false
+                    actionToolbar.updateActionsAsync()
                 }, ModalityState.any())
             } catch (e: DopplerFetchException) {
                 // Log only the exception type — never e.message, which is CLI stderr and
@@ -128,6 +168,8 @@ class DopplerToolWindowPanel(
                 ApplicationManager.getApplication().invokeLater({
                     applyFetchError(e.message)
                     notifyError(project, e.message)
+                    isLoading = false
+                    actionToolbar.updateActionsAsync()
                 }, ModalityState.any())
             }
         }
@@ -184,6 +226,51 @@ class DopplerToolWindowPanel(
         return failed
     }
 
+    // ── Internal: action hooks (called from AnAction.actionPerformed) ─────────
+
+    /** EDT-only. Returns the [SecretRow] for the currently selected table row, or null. */
+    internal fun selectedSecretRow(): SecretRow? {
+        val idx = table.selectedRow
+        if (idx < 0 || idx >= model.rowCount) return null
+        return model.rows[idx]
+    }
+
+    /** EDT-only. Toggles the reveal flag on the selected row and repaints. */
+    internal fun toggleRevealOnSelected() {
+        val idx = table.selectedRow
+        if (idx < 0 || idx >= model.rowCount) return
+        // Look up by current selection — model index is stable since selection events
+        // and reveal toggles both run on the EDT and we mutate the same row in place.
+        model.rows[idx].revealed = !model.rows[idx].revealed
+        model.fireTableRowsUpdated(idx, idx)
+        actionToolbar.updateActionsAsync()
+    }
+
+    /**
+     * EDT-only. Copies the selected row's value to the system clipboard.
+     *
+     * Value goes to the clipboard only — never to a log, notification, or other
+     * persisted surface (see §6 of CLAUDE.md).
+     */
+    internal fun copySelectedValue() {
+        val row = selectedSecretRow() ?: return
+        CopyPasteManager.getInstance().setContents(StringSelection(row.value))
+    }
+
+    /**
+     * EDT-only. Confirms with the user, then deletes the selected secret asynchronously.
+     */
+    internal fun deleteSelectedWithConfirm() {
+        val row = selectedSecretRow() ?: return
+        val confirm = JOptionPane.showConfirmDialog(
+            this,
+            DopplerBundle.message("toolwindow.delete.confirm", row.key),
+            DopplerBundle.message("toolwindow.context.delete"),
+            JOptionPane.OK_CANCEL_OPTION,
+        )
+        if (confirm == JOptionPane.OK_OPTION) deleteSecretAsync(row)
+    }
+
     // ── Private: async save + edit actions ────────────────────────────────────
 
     private fun saveChangesAsync() {
@@ -221,11 +308,11 @@ class DopplerToolWindowPanel(
     }
 
     @Suppress("ReturnCount")
-    private fun showAddDialog() {
+    internal fun showAddDialog() {
         val nameField = JTextField(20)
         val valueField = JTextField(20)
         // GridLayout(rows, cols) keeps label and field on the same row.
-        val form = JPanel(GridLayout(2, 2, 4, 4)).apply {
+        val form = JPanel(java.awt.GridLayout(2, 2, 4, 4)).apply {
             add(JLabel(DopplerBundle.message("toolwindow.add.dialog.name")))
             add(nameField)
             add(JLabel(DopplerBundle.message("toolwindow.add.dialog.value")))
@@ -332,6 +419,7 @@ class DopplerToolWindowPanel(
             if (idx >= 0) {
                 model.rows[idx].revealed = !model.rows[idx].revealed
                 model.fireTableRowsUpdated(idx, idx)
+                actionToolbar.updateActionsAsync()
             }
         }
 
