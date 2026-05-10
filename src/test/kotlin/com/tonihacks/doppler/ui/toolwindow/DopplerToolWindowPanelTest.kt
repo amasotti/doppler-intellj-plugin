@@ -70,6 +70,41 @@ class DopplerToolWindowPanelTest {
         assertThat(panel.model.rowCount).isEqualTo(0)
     }
 
+    @Test
+    fun `isLoading starts false before any fetch`() {
+        val panel = makePanel()
+        assertThat(panel.isLoading).isFalse()
+    }
+
+    // ── selection-aware action hooks ──────────────────────────────────────────
+
+    @Test
+    fun `selectedSecretRow returns null when nothing is selected`() {
+        val panel = makePanel()
+        panel.applyLoadedSecrets(mapOf("K" to "v"))
+        // Default JBTable has no row selected immediately after model swap.
+        assertThat(panel.selectedSecretRow()).isNull()
+    }
+
+    @Test
+    fun `toggleRevealOnSelected is a no-op when nothing is selected`() {
+        val panel = makePanel()
+        panel.applyLoadedSecrets(mapOf("K" to "v"))
+
+        panel.toggleRevealOnSelected()
+
+        assertThat(panel.model.rows[0].revealed).isFalse()
+    }
+
+    @Test
+    fun `copySelectedValue is a no-op when nothing is selected`() {
+        val panel = makePanel()
+        panel.applyLoadedSecrets(mapOf("K" to "v"))
+
+        // Should not throw despite no selection — guards against NPE / IndexOutOfBounds.
+        panel.copySelectedValue()
+    }
+
     // ── applyLoadedSecrets ─────────────────────────────────────────────────────
 
     @Test
