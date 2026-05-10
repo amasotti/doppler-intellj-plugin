@@ -2,6 +2,36 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
+## [0.2.1] - 2026-05-10
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/3dc22cd1fe1066d7f1d2721bdd8554db96815531..51c53e3ad0a051c71b015db22e3784185f2c3eee)
+### 🚀 Features
+
+
+- Register new gradle extension for newer gradle versions ([6ef5bf1](https://github.com/amasotti/doppler-intellj-plugin/commit/6ef5bf141f2ce3c1c9e75a36db8acd0cbdca94be))
+
+### 🐛 Bug Fixes
+
+
+- Tags with / without v prefix ([dfd87d8](https://github.com/amasotti/doppler-intellj-plugin/commit/dfd87d8bd99b8fbe0e830ee169447244eea47bf3))
+
+- Improve file chooser dialog title for CLI binary selection ([4fd7d7b](https://github.com/amasotti/doppler-intellj-plugin/commit/4fd7d7bf2ce0584c59160ebd73736ffaf7d3d621))
+
+- Pin verifier to IU-2026.1 to avoid compatibility errors with PythonCore ([3a19dda](https://github.com/amasotti/doppler-intellj-plugin/commit/3a19dda75b45f2c8c37018ccebb6d9c154f02f1d))
+
+- Pin PythonCore and add debug logging expressions ([8860193](https://github.com/amasotti/doppler-intellj-plugin/commit/886019378b5ebaaf81160aac5f354d39c25bda35))
+
+- Race condition in UI in setting doppler project and config ([b507536](https://github.com/amasotti/doppler-intellj-plugin/commit/b507536bc70bec7994c35e907808da8be9d8715c))
+
+- Prevent race condition in project loading during component creation ([dbf4bd7](https://github.com/amasotti/doppler-intellj-plugin/commit/dbf4bd73de4de45d03a7ebd4f817bb261527f329))
+
+### ⚙️ Miscellaneous Tasks
+
+
+- Exclude log files from git ([a1478f5](https://github.com/amasotti/doppler-intellj-plugin/commit/a1478f5e2825e216f09be1a515a5e24a068272f4))
+
+- Increase MaxLineLength ([7e16421](https://github.com/amasotti/doppler-intellj-plugin/commit/7e16421bfe13b1be78ee85879189f39b789ba25d))
+
 ## [0.2.0] - 2026-05-10
 
 [Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/1543b9b3346bd9cb7e46fd165888251a8a1b176b..3dc22cd1fe1066d7f1d2721bdd8554db96815531)
