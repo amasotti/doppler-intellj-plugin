@@ -1,3 +1,4 @@
+import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
@@ -10,7 +11,7 @@ plugins {
 }
 
 group = "com.tonihacks"
-version = "0.1.1"
+version = "0.1.2"
 
 repositories {
     mavenCentral()
@@ -69,4 +70,26 @@ tasks.withType<JavaCompile>().configureEach {
 
 tasks.test {
     useJUnitPlatform()
+}
+
+// Run the plugin against non-IDEA IDEs for cross-IDE smoke testing.
+intellijPlatformTesting {
+    runIde {
+        register("runPhpStorm") {
+            type = IntelliJPlatformType.PhpStorm
+            version = "2024.2"
+        }
+        register("runWebStorm") {
+            type = IntelliJPlatformType.WebStorm
+            version = "2025.2"
+        }
+        register("runRider") {
+            type = IntelliJPlatformType.Rider
+            version = "2025.2"
+        }
+        register("runPyCharm") {
+            type = IntelliJPlatformType.PyCharm
+            version = "2025.2"
+        }
+    }
 }
