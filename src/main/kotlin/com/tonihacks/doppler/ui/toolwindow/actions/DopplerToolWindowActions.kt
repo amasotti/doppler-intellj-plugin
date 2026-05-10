@@ -9,28 +9,7 @@ import com.intellij.openapi.project.Project
 import com.tonihacks.doppler.DopplerBundle
 import com.tonihacks.doppler.ui.toolwindow.DopplerToolWindowPanel
 
-/**
- * `AnAction` subclasses backing the Doppler tool window toolbar.
- *
- * Rationale for using `AnAction` over plain [javax.swing.JButton]:
- *  - Click feedback (rollover, pressed) handled by the platform.
- *  - Enabled state declarative via [AnAction.update]; the toolbar refreshes when
- *    [com.intellij.openapi.actionSystem.ActionToolbar.updateActionsImmediately] is called.
- *  - Icons sourced from [AllIcons] match IDE theme and DPI scaling automatically.
- *
- * Each action takes a [DopplerToolWindowPanel] reference and delegates to its
- * EDT-only internal methods. The panel is the single owner of mutable Swing state;
- * actions are stateless wrappers.
- *
- * ## Threading
- *
- * All [actionPerformed] / [update] calls run on the EDT (declared via
- * [getActionUpdateThread]). Long-running work is dispatched onto a background pool
- * inside the panel's own methods.
- */
-
-// Mirrors `<projectConfigurable id="..."/>` in plugin.xml. Drift here = Settings
-// dialog opens at the wrong page silently. Update both together.
+// Mirrors `<projectConfigurable id="..."/>` in plugin.xml. Update both together.
 private const val SETTINGS_CONFIGURABLE_ID = "com.tonihacks.doppler.settings"
 
 internal class RefreshAction(private val panel: DopplerToolWindowPanel) : AnAction(
@@ -59,8 +38,7 @@ internal class AddSecretAction(private val panel: DopplerToolWindowPanel) : AnAc
     }
 
     override fun update(e: AnActionEvent) {
-        // Disabled while a fetch is in flight — otherwise an Add submit could race the
-        // tail of an in-progress reload and silently lose its `loadSecretsAsync()`.
+        // Disabled mid-fetch so an Add submit can't race the tail of an in-progress reload.
         e.presentation.isEnabled = !panel.isLoading
     }
 
@@ -79,7 +57,6 @@ internal class RevealHideAction(private val panel: DopplerToolWindowPanel) : AnA
     override fun update(e: AnActionEvent) {
         val selected = panel.selectedSecretRow()
         e.presentation.isEnabled = selected != null
-        // Icon + text flip based on the selected row's reveal state.
         if (selected != null && selected.revealed) {
             e.presentation.icon = AllIcons.Actions.Cancel
             e.presentation.text = DopplerBundle.message("toolwindow.action.hide")

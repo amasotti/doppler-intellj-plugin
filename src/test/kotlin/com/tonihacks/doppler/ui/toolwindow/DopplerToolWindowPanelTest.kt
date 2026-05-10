@@ -3,8 +3,6 @@ package com.tonihacks.doppler.ui.toolwindow
 import com.intellij.testFramework.junit5.TestApplication
 import com.intellij.testFramework.junit5.fixture.projectFixture
 import com.tonihacks.doppler.cli.DopplerCliClient
-import com.tonihacks.doppler.service.DopplerFetchException
-import com.tonihacks.doppler.service.DopplerProjectService
 import com.tonihacks.doppler.settings.DopplerSettingsState
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
@@ -12,16 +10,6 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.io.File
 
-/**
- * Tests for [DopplerToolWindowPanel].
- *
- * Focuses on synchronous behaviour (model population, button state, error display).
- * Async flows ([loadSecretsAsync], [saveChangesAsync]) are exercised indirectly via
- * their synchronous counterparts ([applyLoadedSecrets], [applyFetchError]).
- *
- * The actual CLI calls in save/add/delete are thin glue over [DopplerCliClient], which
- * is tested in its own unit-test suite — we do not duplicate those tests here.
- */
 @TestApplication
 class DopplerToolWindowPanelTest {
 
@@ -198,10 +186,6 @@ class DopplerToolWindowPanelTest {
 
     @Test
     fun `applyFetchError status text does not contain secret values`() {
-        // DopplerFetchException.message = CLI stderr verbatim.
-        // CLI stderr for `secrets download` failures does not include secret values —
-        // verified in DopplerCliClient contract. This test guards against regression
-        // where a future code path routes a value-bearing string through applyFetchError.
         val panel = makePanel()
         val errorMsg = "Access denied for project 'api-service'"
 

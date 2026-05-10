@@ -6,27 +6,12 @@ import com.tonihacks.doppler.service.DopplerFetchException
 import com.tonihacks.doppler.service.DopplerProjectService
 
 /**
- * Family-agnostic secret-injection pipeline. Encapsulates the fetch → merge → apply →
- * shadow-warn sequence shared by every run-config injector (Java, Gradle, Node.js,
- * Python). Each platform-specific injector owns:
- *   1. its `isApplicableFor` predicate (different config types)
- *   2. its `applyMerged` lambda (different ways to write env back: `JavaParameters.env`,
- *      `GeneralCommandLine.environment`, `NodeTargetRun.envData`, ...)
+ * Family-agnostic injection pipeline (fetch → merge → apply → shadow-warn).
+ * Each platform-specific injector supplies its own `applyMerged` (writes env back
+ * onto `JavaParameters`, `GeneralCommandLine`, `NodeTargetRun`, ...).
  *
- * Everything else — error policy, shadow notification, once-per-session deduplication —
- * lives here so the conflict policy is encoded in **one** place (cf. spec §2.3, §5.3,
- * §5.5, §11.7).
- *
- * **Failure policy (spec §5.5).** [DopplerProjectService.fetchSecrets] is the only
- * `throw` site in the service layer. The exception (`DopplerFetchException`) carries
- * CLI stderr verbatim as its `message`. We surface that message via [notifyError] and
- * **rethrow `e` directly** — never wrap. Wrapping would smuggle the verbatim message
- * into a `cause` chain that other run-listeners log via `e.toString()`. The platform
- * accepts any `RuntimeException` from the extension hook as a launch-abort signal.
- *
- * **Shadow notification dedup (spec §5.3).** When local run-config env vars shadow
- * Doppler-managed keys, we emit a one-time-per-session balloon listing the *keys*
- * (never values — spec §11.7). Dedup is keyed by `configName` via [OverrideTracker].
+ * On CLI failure the pipeline rethrows [DopplerFetchException] bare — wrapping in
+ * `ExecutionException` would smuggle stderr into a cause chain that listeners log.
  */
 internal object SecretInjectionRunner {
 
