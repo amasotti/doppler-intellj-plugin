@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
+## [0.3.0] - 2026-05-11
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/51c53e3ad0a051c71b015db22e3784185f2c3eee..6c3a6a2c5267aa6eb662ea41b81c54b3ee03ba43)
+### 🚀 Features
+
+
+- Add search functionality to secrets table ([1ec34af](https://github.com/amasotti/doppler-intellj-plugin/commit/1ec34af2152c2d8b072712519172c99115bccbce))
+
+### 🐛 Bug Fixes
+
+
+- Disable PythonCore in non-Python IDE sandboxes to prevent TOML dependency balloon ([d81a55a](https://github.com/amasotti/doppler-intellj-plugin/commit/d81a55a26a5d003fa7aab18a13ca63442cdf8cd4))
+
+- Update settings dialog invocation to use DopplerSettingsConfigurable class ([9b4e428](https://github.com/amasotti/doppler-intellj-plugin/commit/9b4e42885c71d9817751fec53823206f6e5451f9))
+
+### ⚙️ Miscellaneous Tasks
+
+
+- Enhance CLI path detection and UI feedback in settings ([6c3a6a2](https://github.com/amasotti/doppler-intellj-plugin/commit/6c3a6a2c5267aa6eb662ea41b81c54b3ee03ba43))
+
 ## [0.2.1] - 2026-05-10
 
 [Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/3dc22cd1fe1066d7f1d2721bdd8554db96815531..51c53e3ad0a051c71b015db22e3784185f2c3eee)

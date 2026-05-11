@@ -1,3 +1,4 @@
+import org.jetbrains.changelog.Changelog
 import org.jetbrains.intellij.platform.gradle.IntelliJPlatformType
 import org.jetbrains.intellij.platform.gradle.TestFrameworkType
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
@@ -7,6 +8,7 @@ plugins {
     kotlin("jvm") version "2.3.21"
     kotlin("plugin.serialization") version "2.3.21"
     id("org.jetbrains.intellij.platform") version "2.16.0"
+    id("org.jetbrains.changelog") version "2.2.1"
     id("dev.detekt") version("2.0.0-alpha.3")
 }
 
@@ -65,7 +67,15 @@ intellijPlatform {
         version = project.version.toString()
         description = "Inject Doppler-managed secrets into JetBrains run configurations and browse/edit them from a tool window."
         ideaVersion {
-            sinceBuild = "261"
+            sinceBuild = "261.22158"
+        }
+        changeNotes = providers.provider {
+            with(changelog) {
+                renderItem(
+                    (getOrNull(project.version.toString()) ?: getLatest()),
+                    Changelog.OutputType.HTML,
+                )
+            }
         }
     }
     // Pin verifier to IU-2026.1 (matches the PythonCore 261.22158.277 pin above).
