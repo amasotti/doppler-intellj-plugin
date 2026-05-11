@@ -7,10 +7,8 @@ import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.options.ShowSettingsUtil
 import com.intellij.openapi.project.Project
 import com.tonihacks.doppler.DopplerBundle
+import com.tonihacks.doppler.settings.DopplerSettingsConfigurable
 import com.tonihacks.doppler.ui.toolwindow.DopplerToolWindowPanel
-
-// Mirrors `<projectConfigurable id="..."/>` in plugin.xml. Update both together.
-private const val SETTINGS_CONFIGURABLE_ID = "com.tonihacks.doppler.settings"
 
 internal class RefreshAction(private val panel: DopplerToolWindowPanel) : AnAction(
     DopplerBundle.messagePointer("toolwindow.action.refresh"),
@@ -109,7 +107,7 @@ internal class OpenSettingsAction(private val project: Project) : AnAction(
     AllIcons.General.Settings,
 ) {
     override fun actionPerformed(e: AnActionEvent) {
-        ShowSettingsUtil.getInstance().showSettingsDialog(project, SETTINGS_CONFIGURABLE_ID)
+        ShowSettingsUtil.getInstance().showSettingsDialog(project, DopplerSettingsConfigurable::class.java)
     }
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
