@@ -11,6 +11,7 @@ import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
+import com.intellij.util.ui.JBUI
 import com.tonihacks.doppler.DopplerBundle
 import com.tonihacks.doppler.cli.DopplerCliClient
 import com.tonihacks.doppler.cli.DopplerResult
@@ -45,6 +46,10 @@ class DopplerSettingsPanel(project: Project) {
         SpinnerNumberModel(DopplerSettingsState.DEFAULT_CACHE_TTL_SECONDS, 0, 3600, 10),
     )
     private val cliPathField = TextFieldWithBrowseButton()
+    private val detectedCliLabel = JBLabel().apply {
+        foreground = JBUI.CurrentTheme.ContextHelp.FOREGROUND
+        font = JBUI.Fonts.smallFont()
+    }
     private val statusLabel = JBLabel()
 
     // Set during model swap so the item listener ignores the auto-fired SELECTED event.
@@ -110,6 +115,19 @@ class DopplerSettingsPanel(project: Project) {
      * the first call would clobber the freshly-set selection. Snapshotting on the EDT
      * just before `combo.model = …` avoids the race entirely.
      */
+    fun loadDetectedPathAsync() {
+        val label = detectedCliLabel
+        ApplicationManager.getApplication().executeOnPooledThread {
+            val path = DopplerCliClient.detectDefaultPath()
+            ApplicationManager.getApplication().invokeLater({
+                label.text = if (path != null)
+                    DopplerBundle.message("settings.cli.detected", path)
+                else
+                    ""
+            }, ModalityState.any())
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught")
     fun loadProjectsAsync() {
         val currentCliPath = cliPath
@@ -219,6 +237,9 @@ class DopplerSettingsPanel(project: Project) {
         }
         row(DopplerBundle.message("settings.cli.path")) {
             cell(cliPathField).align(AlignX.FILL)
+        }
+        row {
+            cell(detectedCliLabel)
         }
         separator()
         row {

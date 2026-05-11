@@ -51,8 +51,9 @@ class DopplerSettingsConfigurable(private val project: Project) : Configurable {
         p.selectedConfig = s.dopplerConfig
         p.cacheTtlSeconds = s.cacheTtlSeconds
         p.cliPath = s.cliPath
-        // Refresh project list in case CLI path changed.
+        // Refresh project list and auto-detected path in case CLI path changed.
         p.loadProjectsAsync()
+        p.loadDetectedPathAsync()
     }
 
     override fun disposeUIResources() {
