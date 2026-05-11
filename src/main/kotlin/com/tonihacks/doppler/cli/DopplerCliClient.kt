@@ -3,6 +3,7 @@ package com.tonihacks.doppler.cli
 import com.intellij.execution.ExecutionException
 import com.intellij.execution.configurations.GeneralCommandLine
 import com.intellij.execution.configurations.PathEnvironmentVariableUtil
+import com.intellij.openapi.util.SystemInfo
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -105,7 +106,9 @@ class DopplerCliClient(
         if (!cliPath.isNullOrBlank()) {
             return cliPath.takeIf { File(it).canExecute() }
         }
-        return PathEnvironmentVariableUtil.findInPath("doppler")?.absolutePath
+        PathEnvironmentVariableUtil.findInPath("doppler")?.absolutePath?.let { return it }
+        // IDEs often launch without the user's shell PATH, so Homebrew / system bins are invisible.
+        return FALLBACK_PATHS.firstOrNull { File(it).canExecute() }
     }
 
     private fun startProcess(args: List<String>): DopplerResult<Process> {
@@ -174,6 +177,20 @@ class DopplerCliClient(
         private const val STREAM_DRAIN_TIMEOUT_MS = 2_000L
         private const val STREAM_POOL_SIZE = 2
         private val LOG: Logger = Logger.getLogger(DopplerCliClient::class.java.name)
+
+        private val FALLBACK_PATHS: List<String> = buildList {
+            if (SystemInfo.isMac) {
+                add("/opt/homebrew/bin/doppler")  // Apple Silicon
+                add("/usr/local/bin/doppler")      // Intel Mac
+            }
+            if (SystemInfo.isLinux) {
+                add("/usr/local/bin/doppler")
+                add("/usr/bin/doppler")
+            }
+            if (SystemInfo.isWindows) {
+                add("""C:\Program Files\Doppler\bin\doppler.exe""")
+            }
+        }
     }
 }
 

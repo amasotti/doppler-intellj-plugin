@@ -10,9 +10,14 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProcessCanceledException
 import com.intellij.openapi.ide.CopyPasteManager
 import com.intellij.openapi.project.Project
+import com.intellij.ui.DocumentAdapter
+import com.intellij.ui.SearchTextField
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBScrollPane
 import com.intellij.ui.table.JBTable
+import javax.swing.RowFilter
+import javax.swing.event.DocumentEvent
+import javax.swing.table.TableRowSorter
 import com.tonihacks.doppler.DopplerBundle
 import com.tonihacks.doppler.cli.DopplerCliClient
 import com.tonihacks.doppler.cli.DopplerResult
@@ -82,7 +87,14 @@ class DopplerToolWindowPanel(
     }
 
     internal val model = SecretsTableModel()
-    private val table = JBTable(model)
+    private val sorter = TableRowSorter(model).apply {
+        setSortable(SecretsTableModel.COL_NAME, false)
+        setSortable(SecretsTableModel.COL_VALUE, false)
+    }
+    private val table = JBTable(model).also { it.rowSorter = sorter }
+    private val searchField = SearchTextField(false).apply {
+        toolTipText = DopplerBundle.message("toolwindow.search.tooltip")
+    }
     internal val statusLabel = JBLabel(DopplerBundle.message("toolwindow.status.loading"))
     internal val saveButton = JButton(DopplerBundle.message("toolwindow.save")).also { it.isEnabled = false }
 
@@ -106,6 +118,9 @@ class DopplerToolWindowPanel(
         setupLayout()
         // Single source of truth for save-button state: the model listener.
         model.addTableModelListener { saveButton.isEnabled = model.hasModifiedRows() }
+        searchField.addDocumentListener(object : DocumentAdapter() {
+            override fun textChanged(e: DocumentEvent) = applySearchFilter()
+        })
         table.addMouseListener(object : MouseAdapter() {
             override fun mousePressed(e: MouseEvent) = maybeShowContextMenu(e)
             override fun mouseReleased(e: MouseEvent) = maybeShowContextMenu(e)
@@ -139,9 +154,19 @@ class DopplerToolWindowPanel(
         south.add(statusLabel, BorderLayout.WEST)
         south.add(saveButton, BorderLayout.EAST)
 
-        add(actionToolbar.component, BorderLayout.NORTH)
+        val north = JPanel(BorderLayout())
+        north.add(actionToolbar.component, BorderLayout.NORTH)
+        north.add(searchField, BorderLayout.SOUTH)
+
+        add(north, BorderLayout.NORTH)
         add(JBScrollPane(table), BorderLayout.CENTER)
         add(south, BorderLayout.SOUTH)
+    }
+
+    private fun applySearchFilter() {
+        val text = searchField.text.trim()
+        sorter.rowFilter = if (text.isBlank()) null
+        else RowFilter.regexFilter("(?i)${Regex.escape(text)}", SecretsTableModel.COL_NAME)
     }
 
     // ── Public API ─────────────────────────────────────────────────────────────
@@ -271,19 +296,21 @@ class DopplerToolWindowPanel(
 
     /** EDT-only. Returns the [SecretRow] for the currently selected table row, or null. */
     internal fun selectedSecretRow(): SecretRow? {
-        val idx = table.selectedRow
-        if (idx < 0 || idx >= model.rowCount) return null
-        return model.rows[idx]
+        val viewIdx = table.selectedRow
+        if (viewIdx < 0) return null
+        val modelIdx = table.convertRowIndexToModel(viewIdx)
+        if (modelIdx < 0 || modelIdx >= model.rowCount) return null
+        return model.rows[modelIdx]
     }
 
     /** EDT-only. Toggles the reveal flag on the selected row and repaints. */
     internal fun toggleRevealOnSelected() {
-        val idx = table.selectedRow
-        if (idx < 0 || idx >= model.rowCount) return
-        // Look up by current selection — model index is stable since selection events
-        // and reveal toggles both run on the EDT and we mutate the same row in place.
-        model.rows[idx].revealed = !model.rows[idx].revealed
-        model.fireTableRowsUpdated(idx, idx)
+        val viewIdx = table.selectedRow
+        if (viewIdx < 0) return
+        val modelIdx = table.convertRowIndexToModel(viewIdx)
+        if (modelIdx < 0 || modelIdx >= model.rowCount) return
+        model.rows[modelIdx].revealed = !model.rows[modelIdx].revealed
+        model.fireTableRowsUpdated(modelIdx, modelIdx)
         actionToolbar.updateActionsAsync()
     }
 
@@ -431,10 +458,11 @@ class DopplerToolWindowPanel(
 
     private fun maybeShowContextMenu(e: MouseEvent) {
         if (!e.isPopupTrigger) return
-        val rowIdx = table.rowAtPoint(e.point)
-        if (rowIdx < 0) return
-        table.selectionModel.setSelectionInterval(rowIdx, rowIdx)
-        buildContextMenu(model.rows[rowIdx]).show(e.component, e.x, e.y)
+        val viewIdx = table.rowAtPoint(e.point)
+        if (viewIdx < 0) return
+        table.selectionModel.setSelectionInterval(viewIdx, viewIdx)
+        val modelIdx = table.convertRowIndexToModel(viewIdx)
+        buildContextMenu(model.rows[modelIdx]).show(e.component, e.x, e.y)
     }
 
     private fun buildContextMenu(capturedRow: SecretRow): JPopupMenu {
