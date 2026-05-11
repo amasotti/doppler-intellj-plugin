@@ -191,6 +191,12 @@ class DopplerCliClient(
                 add("""C:\Program Files\Doppler\bin\doppler.exe""")
             }
         }
+
+        /** Resolves the doppler binary that would be used when no explicit CLI path is configured. */
+        fun detectDefaultPath(): String? {
+            PathEnvironmentVariableUtil.findInPath("doppler")?.absolutePath?.let { return it }
+            return FALLBACK_PATHS.firstOrNull { File(it).canExecute() }
+        }
     }
 }
 
