@@ -155,6 +155,7 @@ intellijPlatformTesting {
         register("runRider") {
             type = IntelliJPlatformType.Rider
             version = "2026.1"
+            useInstaller = false
             plugins {
                 // PythonCore is not relevant in Rider and requires org.toml.lang
                 // which is not bundled here; disable to prevent a broken-dependency balloon.
