@@ -24,6 +24,22 @@ repositories {
     }
 }
 
+dependencyLocking {
+    lockAllConfigurations()
+}
+
+tasks.register("resolveAndLockAll") {
+    notCompatibleWithConfigurationCache("Resolves all configurations at execution time")
+    doFirst {
+        require(gradle.startParameter.isWriteDependencyLocks) {
+            "Run with --write-locks (e.g. ./gradlew resolveAndLockAll --write-locks)"
+        }
+    }
+    doLast {
+        configurations.filter { it.isCanBeResolved }.forEach { it.resolve() }
+    }
+}
+
 dependencies {
     intellijPlatform {
         // IDEA Ultimate base: bundles Java, Gradle, JavaScript, and NodeJS plugins —
