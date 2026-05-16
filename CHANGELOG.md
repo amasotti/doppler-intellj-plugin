@@ -2,13 +2,22 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
-## [unreleased]
+## [0.3.2.beta] - 2026-05-16
 
-[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8..560deb20112bbc9f099bc05d52ba6f6edc281320)
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8..ff7b1fb3288b17986753553a6dd56b0713619ec7)
 ### ⚙️ Miscellaneous Tasks
 
 
 - Update gradle version to 9.5.1 ([560deb2](https://github.com/amasotti/doppler-intellj-plugin/commit/560deb20112bbc9f099bc05d52ba6f6edc281320))
+
+- Add no installer flag for Rider (test config) ([c4eadb5](https://github.com/amasotti/doppler-intellj-plugin/commit/c4eadb5f83cde4fb858f6c4ce567f1a3f1c1b0b3))
+
+### Security
+
+
+- Add lockfile for gradle dependencies ([661aee1](https://github.com/amasotti/doppler-intellj-plugin/commit/661aee16b5ba617c7efe31ac9edf67ca704b21c4))
+
+- Create lockfile for dependencies ([ff7b1fb](https://github.com/amasotti/doppler-intellj-plugin/commit/ff7b1fb3288b17986753553a6dd56b0713619ec7))
 
 ## [0.3.1] - 2026-05-11
 
