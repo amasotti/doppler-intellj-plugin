@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
-## [0.3.2.beta] - 2026-05-16
+## [0.3.2] - 2026-05-16
 
 [Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8..ff7b1fb3288b17986753553a6dd56b0713619ec7)
 ### ⚙️ Miscellaneous Tasks
