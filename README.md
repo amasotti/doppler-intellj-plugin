@@ -197,6 +197,18 @@ model, and security boundaries are documented in
 ./gradlew verifyPlugin             # validate plugin.xml + archive structure
 ```
 
+### Dependency lockfile
+
+All configurations are locked via `gradle.lockfile` (checked in). Resolution will fail
+if a transitive version drifts from what is recorded. Regenerate after any dependency
+bump:
+
+```bash
+./gradlew resolveAndLockAll --write-locks
+```
+
+Commit the updated `gradle.lockfile` alongside the dependency change.
+
 Tests never call the real Doppler CLI or API — fixtures + fake shell-script binaries cover
 every code path in `DopplerCliClient`. End-to-end verification is a manual checklist per
 release; see `docs/architecture.md`.
