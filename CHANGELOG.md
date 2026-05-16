@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file (created with git cliff).
 
+## [unreleased]
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8..560deb20112bbc9f099bc05d52ba6f6edc281320)
+### ⚙️ Miscellaneous Tasks
+
+
+- Update gradle version to 9.5.1 ([560deb2](https://github.com/amasotti/doppler-intellj-plugin/commit/560deb20112bbc9f099bc05d52ba6f6edc281320))
+
+## [0.3.1] - 2026-05-11
+
+[Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/6c3a6a2c5267aa6eb662ea41b81c54b3ee03ba43..5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8)
+### ⚙️ Miscellaneous Tasks
+
+
+- Integrate changelog plugin and update versioning details ([5e026d9](https://github.com/amasotti/doppler-intellj-plugin/commit/5e026d9c540bd26cf3fbe2ba2775b06ff39c3cd8))
+
 ## [0.3.0] - 2026-05-11
 
 [Compare with last version](https://github.com/amasotti/doppler-intellj-plugin/compare/51c53e3ad0a051c71b015db22e3784185f2c3eee..6c3a6a2c5267aa6eb662ea41b81c54b3ee03ba43)
